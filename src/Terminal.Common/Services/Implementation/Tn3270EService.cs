@@ -8,17 +8,122 @@ internal sealed partial class Tn3270EService(
     INetworkConnectionFactory connectionFactory,
     ILogger<Tn3270EService> logger) : ITn3270EService, IAsyncDisposable
 {
+    /// <summary>
+    /// TELNET command bytes used while negotiating the session.
+    /// </summary>
+    private enum TelnetCommand : byte
+    {
+        /// <summary>
+        /// End of subnegotiation parameters.
+        /// </summary>
+        Se = TelnetConstants.Se,
+
+        /// <summary>
+        /// No operation.
+        /// </summary>
+        Nop = TelnetConstants.Nop,
+
+        /// <summary>
+        /// End of record.
+        /// </summary>
+        Eor = TelnetConstants.Eor,
+
+        /// <summary>
+        /// Start of subnegotiation parameters.
+        /// </summary>
+        Sb = TelnetConstants.Sb,
+
+        /// <summary>
+        /// Sender will begin using the option.
+        /// </summary>
+        Will = TelnetConstants.Will,
+
+        /// <summary>
+        /// Sender will not use the option.
+        /// </summary>
+        Wont = TelnetConstants.Wont,
+
+        /// <summary>
+        /// Request that the peer begin using the option.
+        /// </summary>
+        Do = TelnetConstants.Do,
+
+        /// <summary>
+        /// Request that the peer stop using the option.
+        /// </summary>
+        Dont = TelnetConstants.Dont,
+
+        /// <summary>
+        /// Interpret As Command introducer.
+        /// </summary>
+        Iac = TelnetConstants.Iac,
+    }
+
+    /// <summary>
+    /// TELNET option bytes relevant to TN3270/TN3270E negotiation.
+    /// </summary>
+    private enum TelnetOption : byte
+    {
+        /// <summary>
+        /// Binary transmission option.
+        /// </summary>
+        Binary = TelnetConstants.OptionBinary,
+
+        /// <summary>
+        /// TERMINAL-TYPE option.
+        /// </summary>
+        TerminalType = TelnetConstants.OptionTerminalType,
+
+        /// <summary>
+        /// End Of Record option.
+        /// </summary>
+        Eor = TelnetConstants.OptionEor,
+
+        /// <summary>
+        /// TN3270E option.
+        /// </summary>
+        Tn3270E = TelnetConstants.OptionTn3270E,
+    }
+
+    /// <summary>
+    /// Current protocol mode selected for the active session.
+    /// </summary>
     private enum SessionMode
     {
+        /// <summary>
+        /// Negotiation has not yet determined the active mode.
+        /// </summary>
         Unknown,
+
+        /// <summary>
+        /// Plain TN3270 mode without TN3270E framing.
+        /// </summary>
         Tn3270,
+
+        /// <summary>
+        /// TN3270E mode with framed records and headers.
+        /// </summary>
         Tn3270E,
     }
 
+    /// <summary>
+    /// Outcome of handling one negotiation step.
+    /// </summary>
     private enum NegotiationResult
     {
+        /// <summary>
+        /// Negotiation should continue.
+        /// </summary>
         Continue,
+
+        /// <summary>
+        /// Negotiation completed successfully.
+        /// </summary>
         Succeeded,
+
+        /// <summary>
+        /// Negotiation failed and should stop.
+        /// </summary>
         Failed,
     }
 
@@ -78,25 +183,25 @@ internal sealed partial class Tn3270EService(
                     return true;
                 }
 
-                var cmd = await ReadByteAsync(cancellationToken);
+                var cmd = (TelnetCommand)await ReadByteAsync(cancellationToken);
                 scanned++;
 
                 switch (cmd)
                 {
-                    case TelnetConstants.Do:
-                    case TelnetConstants.Dont:
-                    case TelnetConstants.Will:
-                    case TelnetConstants.Wont:
+                    case TelnetCommand.Do:
+                    case TelnetCommand.Dont:
+                    case TelnetCommand.Will:
+                    case TelnetCommand.Wont:
                         {
-                            var option = await ReadByteAsync(cancellationToken);
+                            var option = (TelnetOption)await ReadByteAsync(cancellationToken);
                             scanned++;
                             await HandleOptionNegotiationAsync(cmd, option, cancellationToken);
                             break;
                         }
 
-                    case TelnetConstants.Sb:
+                    case TelnetCommand.Sb:
                         {
-                            var option = await ReadByteAsync(cancellationToken);
+                            var option = (TelnetOption)await ReadByteAsync(cancellationToken);
                             scanned++;
                             var data = await ReadSubnegotiationDataAsync(cancellationToken);
                             scanned += data.Length + 2; // trailing IAC SE
@@ -309,21 +414,21 @@ internal sealed partial class Tn3270EService(
     }
 
     private async Task HandleOptionNegotiationAsync(
-        byte command,
-        byte option,
+        TelnetCommand command,
+        TelnetOption option,
         CancellationToken cancellationToken)
     {
-        byte? responseCommand = command switch
+        TelnetCommand? responseCommand = command switch
         {
-            TelnetConstants.Do when option is TelnetConstants.OptionBinary
-                or TelnetConstants.OptionEor
-                or TelnetConstants.OptionTerminalType
-                or TelnetConstants.OptionTn3270E => TelnetConstants.Will,
-            TelnetConstants.Will when option is TelnetConstants.OptionBinary
-                or TelnetConstants.OptionEor
-                or TelnetConstants.OptionTn3270E => TelnetConstants.Do,
-            TelnetConstants.Do => TelnetConstants.Wont,
-            TelnetConstants.Will => TelnetConstants.Dont,
+            TelnetCommand.Do when option is TelnetOption.Binary
+                or TelnetOption.Eor
+                or TelnetOption.TerminalType
+                or TelnetOption.Tn3270E => TelnetCommand.Will,
+            TelnetCommand.Will when option is TelnetOption.Binary
+                or TelnetOption.Eor
+                or TelnetOption.Tn3270E => TelnetCommand.Do,
+            TelnetCommand.Do => TelnetCommand.Wont,
+            TelnetCommand.Will => TelnetCommand.Dont,
             _ => null,
         };
 
@@ -332,18 +437,18 @@ internal sealed partial class Tn3270EService(
             return;
         }
 
-        var response = TelnetProtocol.BuildOptionCommand(responseCommand.Value, option);
+        var response = TelnetProtocol.BuildOptionCommand((byte)responseCommand.Value, (byte)option);
         await WriteAsync(response, cancellationToken);
     }
 
     private async Task<NegotiationResult> HandleSubnegotiationAsync(
-        byte option,
+        TelnetOption option,
         byte[] data,
         string terminalType,
         string? deviceName,
         CancellationToken cancellationToken)
     {
-        if (option == TelnetConstants.OptionTerminalType
+        if (option == TelnetOption.TerminalType
             && data.Length == 1
             && data[0] == TelnetConstants.TerminalTypeSend)
         {
@@ -357,7 +462,7 @@ internal sealed partial class Tn3270EService(
             return NegotiationResult.Continue;
         }
 
-        if (option != TelnetConstants.OptionTn3270E)
+        if (option != TelnetOption.Tn3270E)
         {
             return NegotiationResult.Continue;
         }
