@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Terminal.Common.Models;
 using Terminal.Common.Options;
+using Terminal.Common.Protocol;
 using Terminal.Common.Services;
 
 namespace Terminal.Console;
@@ -40,6 +41,7 @@ internal sealed partial class TerminalClientService(
             {
                 var frame = await terminalService.ReceiveAsync(stoppingToken);
                 LogFrameReceived(logger, frame.DataType, frame.SequenceNumber, frame.Data.Length);
+                LogFrameDetails(logger, frame);
             }
         }
         catch (OperationCanceledException)
@@ -65,4 +67,51 @@ internal sealed partial class TerminalClientService(
         Message = "Received frame: DataType={DataType} SeqNum={SeqNum} DataLength={Length}")]
     private static partial void LogFrameReceived(
         ILogger logger, Tn3270EDataType dataType, ushort seqNum, int length);
+
+    private static void LogFrameDetails(ILogger logger, Tn3270EFrame frame)
+    {
+        if (frame.DataType != Tn3270EDataType.Data3270)
+        {
+            LogNon3270FrameReceived(
+                logger,
+                frame.DataType,
+                frame.SequenceNumber,
+                frame.RequestFlag,
+                frame.ResponseFlag);
+            return;
+        }
+
+        var description = Tn3270DataStreamParser.Describe(frame.Data.Span);
+
+        LogRecordReceived(
+            logger,
+            description.CommandName,
+            description.CommandCode,
+            frame.SequenceNumber);
+
+        foreach (var message in description.Messages)
+        {
+            LogRecordDetail(logger, message);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "TN3270E message type {DataType} SeqNum={SeqNum} Request=0x{RequestFlag:X2} Response=0x{ResponseFlag:X2}")]
+    private static partial void LogNon3270FrameReceived(
+        ILogger logger,
+        Tn3270EDataType dataType,
+        ushort seqNum,
+        byte requestFlag,
+        byte responseFlag);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "3270 record: {CommandName} (0x{CommandCode:X2}) SeqNum={SeqNum}")]
+    private static partial void LogRecordReceived(
+        ILogger logger,
+        string commandName,
+        byte commandCode,
+        ushort seqNum);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "3270 detail: {Message}")]
+    private static partial void LogRecordDetail(ILogger logger, string message);
 }
