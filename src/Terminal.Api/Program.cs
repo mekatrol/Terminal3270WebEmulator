@@ -1,16 +1,33 @@
+using Terminal.Api.Logging;
+using Terminal.Common.Extensions;
+
 public partial class Program
 {
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        // Add services to the container.
+        builder.Logging.ClearProviders();
+        builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+
+        if (builder.Environment.IsDevelopment())
+        {
+            // The debugger sink writes to the IDE/debug output window instead of the host console,
+            // which keeps HTTP host diagnostics available during development without depending on
+            // stdout collection from the ASP.NET Core process.
+            builder.Logging.AddDebug();
+        }
+
+        builder.Services.Configure<FileLoggerOptions>(
+            builder.Configuration.GetSection(FileLoggerOptions.SectionName));
+        builder.Services.AddSingleton<ILoggerProvider, FileLoggerProvider>();
+
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
+        builder.Services.AddTerminalServices(builder.Configuration);
 
         var app = builder.Build();
 
-        // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
         {
             app.MapOpenApi();
@@ -18,30 +35,6 @@ public partial class Program
 
         app.UseHttpsRedirection();
 
-        var summaries = new[]
-        {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-        app.MapGet("/weatherforecast", () =>
-        {
-            var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-                .ToArray();
-            return forecast;
-        })
-        .WithName("GetWeatherForecast");
-
         app.Run();
     }
-}
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }

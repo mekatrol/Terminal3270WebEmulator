@@ -1,7 +1,6 @@
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Terminal.Console.Logging;
+namespace Terminal.Api.Logging;
 
 internal sealed class FileLoggerProvider(IOptions<FileLoggerOptions> options) : ILoggerProvider
 {
