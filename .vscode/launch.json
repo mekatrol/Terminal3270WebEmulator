@@ -9,7 +9,7 @@
       "program": "${workspaceFolder}/src/Terminal.Console/bin/Debug/net10.0/Terminal.Console.dll",
       "cwd": "${workspaceFolder}/src/Terminal.Console",
       "stopAtEntry": false,
-      "console": "integratedTerminal",
+      "console": "externalTerminal",
       "env": {
         "DOTNET_ENVIRONMENT": "Development"
       }

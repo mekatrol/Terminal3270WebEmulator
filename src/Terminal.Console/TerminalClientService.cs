@@ -5,6 +5,7 @@ using Terminal.Common.Models;
 using Terminal.Common.Options;
 using Terminal.Common.Protocol;
 using Terminal.Common.Services;
+using Terminal.Common.Terminal;
 
 namespace Terminal.Console;
 
@@ -16,9 +17,13 @@ internal sealed partial class TerminalClientService(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        using var renderer = new TerminalConsoleRenderer();
+        var sync = new object();
+
         try
         {
             var opts = options.Value;
+            var screen = new Tn3270TerminalScreen(opts.TerminalType);
 
             LogConnecting(logger, opts.Host, opts.Port, opts.TerminalType);
 
@@ -37,16 +42,20 @@ internal sealed partial class TerminalClientService(
 
             logger.LogInformation("TN3270E session established, entering data phase");
 
-            while (!stoppingToken.IsCancellationRequested)
+            lock (sync)
             {
-                var frame = await terminalService.ReceiveAsync(stoppingToken);
-                LogFrameReceived(logger, frame.DataType, frame.SequenceNumber, frame.Data.Length);
-                LogFrameDetails(logger, frame);
+                renderer.Initialise(screen);
+                renderer.Render(screen);
             }
+
+            var receiveTask = RunReceiveLoopAsync(screen, renderer, sync, stoppingToken);
+            var inputTask = RunInputLoopAsync(screen, renderer, sync, stoppingToken);
+
+            await Task.WhenAny(receiveTask, inputTask);
+            await Task.WhenAll(receiveTask, inputTask);
         }
         catch (OperationCanceledException)
         {
-            // Normal shutdown path — not an error.
         }
         catch (Exception ex)
         {
@@ -56,6 +65,156 @@ internal sealed partial class TerminalClientService(
         {
             await terminalService.DisconnectAsync(CancellationToken.None);
             lifetime.StopApplication();
+        }
+    }
+
+    private async Task RunReceiveLoopAsync(
+        Tn3270TerminalScreen screen,
+        TerminalConsoleRenderer renderer,
+        object sync,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var frame = await terminalService.ReceiveAsync(cancellationToken);
+            LogFrameReceived(logger, frame.DataType, frame.SequenceNumber, frame.Data.Length);
+            LogFrameDetails(logger, frame);
+
+            if (frame.DataType != Tn3270EDataType.Data3270)
+            {
+                continue;
+            }
+
+            lock (sync)
+            {
+                screen.ApplyInboundRecord(frame.Data.Span);
+                renderer.Render(screen);
+            }
+        }
+    }
+
+    private async Task RunInputLoopAsync(
+        Tn3270TerminalScreen screen,
+        TerminalConsoleRenderer renderer,
+        object sync,
+        CancellationToken cancellationToken)
+    {
+        if (global::System.Console.IsInputRedirected)
+        {
+            logger.LogWarning(
+                "Console input is redirected, so local keyboard entry is disabled for this session.");
+            return;
+        }
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            bool keyAvailable;
+            try
+            {
+                keyAvailable = global::System.Console.KeyAvailable;
+            }
+            catch (InvalidOperationException)
+            {
+                logger.LogWarning(
+                    "Console keyboard polling is unavailable in the current host, so local keyboard entry is disabled.");
+                return;
+            }
+            catch (PlatformNotSupportedException)
+            {
+                logger.LogWarning(
+                    "Console keyboard polling is not supported on this platform, so local keyboard entry is disabled.");
+                return;
+            }
+
+            if (!keyAvailable)
+            {
+                await Task.Delay(25, cancellationToken);
+                continue;
+            }
+
+            ConsoleKeyInfo keyInfo;
+            try
+            {
+                keyInfo = global::System.Console.ReadKey(intercept: true);
+            }
+            catch (InvalidOperationException)
+            {
+                logger.LogWarning(
+                    "Console key reads are unavailable in the current host, so local keyboard entry is disabled.");
+                return;
+            }
+            catch (PlatformNotSupportedException)
+            {
+                logger.LogWarning(
+                    "Console key reads are not supported on this platform, so local keyboard entry is disabled.");
+                return;
+            }
+
+            byte[]? payload = null;
+            var shouldRender = false;
+
+            lock (sync)
+            {
+                switch (keyInfo.Key)
+                {
+                    case ConsoleKey.Tab:
+                        shouldRender = screen.MoveToAdjacentField(
+                            forward: (keyInfo.Modifiers & ConsoleModifiers.Shift) == 0);
+                        break;
+
+                    case ConsoleKey.LeftArrow:
+                        shouldRender = screen.MoveCursor(-1, 0);
+                        break;
+
+                    case ConsoleKey.RightArrow:
+                        shouldRender = screen.MoveCursor(1, 0);
+                        break;
+
+                    case ConsoleKey.UpArrow:
+                        shouldRender = screen.MoveCursor(0, -1);
+                        break;
+
+                    case ConsoleKey.DownArrow:
+                        shouldRender = screen.MoveCursor(0, 1);
+                        break;
+
+                    case ConsoleKey.Backspace:
+                        shouldRender = screen.Backspace();
+                        break;
+
+                    case ConsoleKey.Delete:
+                        shouldRender = screen.Delete();
+                        break;
+
+                    case ConsoleKey.Enter:
+                        payload = screen.BuildReadModifiedRecord();
+                        break;
+
+                    case ConsoleKey.Escape:
+                        lifetime.StopApplication();
+                        return;
+
+                    default:
+                        if (!char.IsControl(keyInfo.KeyChar))
+                        {
+                            shouldRender = screen.TryWriteCharacter(keyInfo.KeyChar);
+                        }
+
+                        break;
+                }
+
+                if (shouldRender)
+                {
+                    renderer.Render(screen);
+                }
+            }
+
+            if (payload is not null)
+            {
+                await terminalService.SendAsync(
+                    new Tn3270EFrame(Tn3270EDataType.Data3270, 0x00, 0x00, 0, payload),
+                    cancellationToken);
+            }
         }
     }
 
