@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Terminal.Api",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Terminal.Api",
+      "program": "${workspaceFolder}/src/Terminal.Api/bin/Debug/net10.0/Terminal.Api.dll",
+      "cwd": "${workspaceFolder}/src/Terminal.Api",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https://\\S+)",
+        "uriFormat": "%s/openapi/v1.json"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:7016;http://localhost:5181"
+      }
+    }
+  ]
+}
