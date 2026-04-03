@@ -328,6 +328,7 @@ dotnet_diagnostic.IDE0305.severity = none    # Use collection expression for flu
 # Compiler nullable diagnostics.
 dotnet_diagnostic.CS8601.severity = error    # Possible null reference assignment
 dotnet_diagnostic.CS8618.severity = none     # Non-nullable member not initialized
+dotnet_diagnostic.CS8795.severity = error    # Partial method must have an implementation (i.e. [LoggerMessage] source generator did not run)
 
 # XML documentation warning.
 dotnet_diagnostic.CS1591.severity = none     # Missing XML comment for publicly visible type or member
@@ -339,3 +340,4 @@ dotnet_diagnostic.CA1827.severity = error    # Do not use Count/LongCount when A
 dotnet_diagnostic.CA1854.severity = error    # Prefer IDictionary.TryGetValue
 dotnet_diagnostic.CA1859.severity = none     # Use concrete types when possible for performance
 dotnet_diagnostic.CA1860.severity = error    # Avoid Enumerable.Any when Length/Count/property is available
+dotnet_diagnostic.CA1873.severity = error    # Avoid unnecessary evaluation when logging is disabled

@@ -70,6 +70,15 @@ eslint.config.ts for SPA TypeScript coding
 
 Code should be formatted on save
 
+All C# methods should pass cancellation tokens and use the token so that scalability can be achieved for 1000s of concurrent users
+
+Allways run to ensure rules and formatting:
+`dotnet build src/Terminal.slnx /p:EnforceCodeStyleInBuild=true`
+and 
+`dotnet format src/Terminal.slnx`
+
+Exceptions should never be swallowd without loggin unless there is a clear descition of why exception is being swallowed
+
 ## Folder structure
 
 src - all soruce code resides under this folder

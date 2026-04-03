@@ -2,6 +2,16 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "build Terminal.Console",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Terminal.Console/Terminal.Console.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "build Terminal.Api",
       "type": "process",
       "command": "dotnet",
