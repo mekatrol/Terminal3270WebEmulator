@@ -55,7 +55,7 @@ Each website is its own Vue JS 3 SPA.
 The .NET server is broken into the following layers:
 
 1. Hosting layer - the layer that provides the HTTPS and WSS end points. This is the host process.
-2. Services layer - the dependency injectable services that perform server functions. This is a .NET library that exposes C# interfaces for operations. Concrete classes for implmentation which are marked protected so that are not accessible outside the library. Extension classes are used to inject services. There are public classes following the C# DI patterns. For example an extension like 'AddXXXServices to add specific function / operations to the host.
+2. Services layer - the dependency injectable services that perform server functions. This is a .NET library that exposes C# interfaces for operations. Concrete classes for implmentation which are marked internal so that are not accessible outside the library. Extension classes are used to inject services. There are public classes following the C# DI patterns. For example an extension like 'AddXXXServices to add specific function / operations to the host.
 3. Persistenece layer - is .NET Entity Framework code first using migrations and the like.
 
 The solution should also have unit tests for all server and SPA functions.
@@ -72,12 +72,31 @@ Code should be formatted on save
 
 All C# methods should pass cancellation tokens and use the token so that scalability can be achieved for 1000s of concurrent users
 
+### Exception handling
+
+Exceptions should never be swallowed without loggin unless there is a clear descition of why exception is being swallowed
+
+### Comments
+
+I want to verbosely documented comments. Comments should not only describe what the code is doing, but also why the code is doing something. Comments should also cite authoritative sources and specifications with URLs if possible.
+
+## Code build after edit
+
+### C#
 Allways run to ensure rules and formatting:
 `dotnet build src/Terminal.slnx /p:EnforceCodeStyleInBuild=true`
 and 
 `dotnet format src/Terminal.slnx`
 
-Exceptions should never be swallowd without loggin unless there is a clear descition of why exception is being swallowed
+### Typescript/Vue JS/SPA
+
+Always run to ensure code compliance
+```bash
+npm run format
+npm run lint
+npm run build
+```
+
 
 ## Folder structure
 
