@@ -87,39 +87,39 @@ internal sealed partial class Tn3270EService(
                     case TelnetConstants.Dont:
                     case TelnetConstants.Will:
                     case TelnetConstants.Wont:
-                    {
-                        var option = await ReadByteAsync(cancellationToken);
-                        scanned++;
-                        await HandleOptionNegotiationAsync(cmd, option, cancellationToken);
-                        break;
-                    }
+                        {
+                            var option = await ReadByteAsync(cancellationToken);
+                            scanned++;
+                            await HandleOptionNegotiationAsync(cmd, option, cancellationToken);
+                            break;
+                        }
 
                     case TelnetConstants.Sb:
-                    {
-                        var option = await ReadByteAsync(cancellationToken);
-                        scanned++;
-                        var data = await ReadSubnegotiationDataAsync(cancellationToken);
-                        scanned += data.Length + 2; // trailing IAC SE
-
-                        var negotiationResult = await HandleSubnegotiationAsync(
-                            option,
-                            data,
-                            terminalType,
-                            deviceName,
-                            cancellationToken);
-
-                        if (negotiationResult == NegotiationResult.Succeeded)
                         {
-                            return true;
-                        }
+                            var option = await ReadByteAsync(cancellationToken);
+                            scanned++;
+                            var data = await ReadSubnegotiationDataAsync(cancellationToken);
+                            scanned += data.Length + 2; // trailing IAC SE
 
-                        if (negotiationResult == NegotiationResult.Failed)
-                        {
-                            return false;
-                        }
+                            var negotiationResult = await HandleSubnegotiationAsync(
+                                option,
+                                data,
+                                terminalType,
+                                deviceName,
+                                cancellationToken);
 
-                        break;
-                    }
+                            if (negotiationResult == NegotiationResult.Succeeded)
+                            {
+                                return true;
+                            }
+
+                            if (negotiationResult == NegotiationResult.Failed)
+                            {
+                                return false;
+                            }
+
+                            break;
+                        }
 
                     default:
                         break;

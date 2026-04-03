@@ -115,6 +115,10 @@ dotnet_style_namespace_match_folder = true:suggestion
 # Treat unused parameters as a code-quality issue across the board.
 dotnet_code_quality_unused_parameters = all:error
 
+# Keep accessibility-bearing partial methods build-blocking if no implementation
+# is produced, including source-generated implementations.
+dotnet_diagnostic.CS8795.severity = error
+
 # Prefer collection expressions where Roslyn can apply them safely and naturally.
 dotnet_style_prefer_collection_expression = when_types_loosely_match:suggestion
 
