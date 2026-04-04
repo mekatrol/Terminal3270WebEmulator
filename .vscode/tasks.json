@@ -12,6 +12,16 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build Terminal.MockServer",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Terminal.MockServer/Terminal.MockServer.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "build Terminal.Api",
       "type": "process",
       "command": "dotnet",

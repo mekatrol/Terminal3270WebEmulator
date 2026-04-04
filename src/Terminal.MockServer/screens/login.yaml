@@ -1,0 +1,70 @@
+# Login screen — the first screen shown to every connecting client.
+# Row/col values are 1-based. The attribute byte is placed one cell before each field automatically.
+id: login
+description: System Login
+rows: 24
+cols: 80
+cursor:
+  row: 12
+  col: 22
+
+fields:
+  # ── Title ──────────────────────────────────────────────────────────────────
+  - row: 4
+    col: 29
+    type: label
+    text: "MOCK TN3270E SERVER"
+    intensified: true
+
+  - row: 5
+    col: 34
+    type: label
+    text: "System Login"
+
+  # ── Separator ──────────────────────────────────────────────────────────────
+  - row: 7
+    col: 2
+    type: label
+    text: "────────────────────────────────────────────────────────────────────────────"
+
+  # ── Username ────────────────────────────────────────────────────────────────
+  - row: 10
+    col: 14
+    type: label
+    text: "User ID  ==>"
+
+  - row: 10
+    col: 26
+    type: input
+    id: username
+    length: 20
+
+  # ── Password ────────────────────────────────────────────────────────────────
+  - row: 12
+    col: 14
+    type: label
+    text: "Password ==>"
+
+  - row: 12
+    col: 27
+    type: input-hidden
+    id: password
+    length: 20
+
+  # ── Separator ──────────────────────────────────────────────────────────────
+  - row: 17
+    col: 2
+    type: label
+    text: "────────────────────────────────────────────────────────────────────────────"
+
+  # ── Function key legend ─────────────────────────────────────────────────────
+  - row: 23
+    col: 2
+    type: label
+    text: "Enter=Sign On    PF3=Exit"
+
+# Navigation: maps AID key names to screen IDs (or "exit" to close the session).
+navigation:
+  Enter: main-menu
+  PF3: exit
+  Clear: login

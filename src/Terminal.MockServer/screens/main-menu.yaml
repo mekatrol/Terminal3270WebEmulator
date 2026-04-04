@@ -1,0 +1,96 @@
+# Main menu — shown after successful login.
+id: main-menu
+description: Main Menu
+rows: 24
+cols: 80
+cursor:
+  row: 14
+  col: 14
+
+fields:
+  # ── Title ──────────────────────────────────────────────────────────────────
+  - row: 3
+    col: 32
+    type: label
+    text: "MAIN MENU"
+    intensified: true
+
+  - row: 4
+    col: 29
+    type: label
+    text: "MOCK TN3270E SERVER"
+
+  # ── Separator ──────────────────────────────────────────────────────────────
+  - row: 6
+    col: 2
+    type: label
+    text: "────────────────────────────────────────────────────────────────────────────"
+
+  # ── Menu options ────────────────────────────────────────────────────────────
+  - row: 8
+    col: 10
+    type: label
+    text: "Select an option and press Enter."
+
+  - row: 10
+    col: 14
+    type: label
+    text: "1"
+    intensified: true
+
+  - row: 10
+    col: 16
+    type: label
+    text: "Application 1 (demo screen)"
+
+  - row: 11
+    col: 14
+    type: label
+    text: "2"
+    intensified: true
+
+  - row: 11
+    col: 16
+    type: label
+    text: "Application 2 (demo screen)"
+
+  - row: 12
+    col: 14
+    type: label
+    text: "3"
+    intensified: true
+
+  - row: 12
+    col: 16
+    type: label
+    text: "Sign off"
+
+  # ── Selection input ─────────────────────────────────────────────────────────
+  - row: 14
+    col: 10
+    type: label
+    text: "Option ===>"
+
+  - row: 14
+    col: 22
+    type: input-numeric
+    id: option
+    length: 1
+
+  # ── Separator ──────────────────────────────────────────────────────────────
+  - row: 17
+    col: 2
+    type: label
+    text: "────────────────────────────────────────────────────────────────────────────"
+
+  # ── Function key legend ─────────────────────────────────────────────────────
+  - row: 23
+    col: 2
+    type: label
+    text: "Enter=Select    PF3=Sign Off    PF12=Cancel"
+
+navigation:
+  Enter: main-menu
+  PF3: login
+  PF12: login
+  Clear: main-menu

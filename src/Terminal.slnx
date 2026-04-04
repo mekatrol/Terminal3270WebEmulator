@@ -3,5 +3,6 @@
   <Project Path="Terminal.Common/Terminal.Common.csproj" />
   <Project Path="Terminal.Console/Terminal.Console.csproj" />
   <Project Path="Terminal.Data/Terminal.Data.csproj" />
+  <Project Path="Terminal.MockServer/Terminal.MockServer.csproj" />
   <Project Path="Terminal.Test.Unit/Terminal.Test.Unit.csproj" />
 </Solution>

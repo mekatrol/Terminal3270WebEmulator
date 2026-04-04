@@ -6,7 +6,8 @@
       "Read(//home/dad/.nuget/**)",
       "Bash(dotnet add:*)",
       "Bash(dotnet build:*)",
-      "Bash(dotnet test:*)"
+      "Bash(dotnet test:*)",
+      "Bash(grep -r \"namespace Terminal\" /home/dad/repos/Terminal3270WebEmulator/src/Terminal.Common/*.cs)"
     ]
   }
 }
