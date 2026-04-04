@@ -2,7 +2,7 @@ import type { SessionControlMessage, SessionReadyMessage, Tn3270Frame } from '@/
 
 export interface TerminalSessionTransport {
   connect(handlers: {
-    onDisconnect: () => void
+    onDisconnect: (event: { code: number; reason: string; wasClean: boolean }) => void
     onError: (message: string) => void
     onFrame: (frame: Tn3270Frame) => void
   }): Promise<SessionReadyMessage>
@@ -90,7 +90,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
   private socket: WebSocket | null = null
 
   async connect(handlers: {
-    onDisconnect: () => void
+    onDisconnect: (event: { code: number; reason: string; wasClean: boolean }) => void
     onError: (message: string) => void
     onFrame: (frame: Tn3270Frame) => void
   }): Promise<SessionReadyMessage> {
@@ -120,7 +120,11 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
 
       socket.addEventListener('close', (event) => {
         this.socket = null
-        handlers.onDisconnect()
+        handlers.onDisconnect({
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        })
         console.log('[TN3270] websocket close', {
           url: webSocketUrl,
           code: event.code,
@@ -161,7 +165,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
 
         if (event.data instanceof ArrayBuffer) {
           const frame = decodeFrame(event.data)
-          console.debug('[TN3270] frame received', {
+          console.log('[TN3270] frame received', {
             dataType: describeDataType(frame.dataType),
             requestFlag: frame.requestFlag,
             responseFlag: frame.responseFlag,
@@ -200,7 +204,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
     const payload = encodeFrame(frame)
     const buffer = new ArrayBuffer(payload.byteLength)
     new Uint8Array(buffer).set(payload)
-    console.debug('[TN3270] frame sent', {
+    console.log('[TN3270] frame sent', {
       dataType: describeDataType(frame.dataType),
       requestFlag: frame.requestFlag,
       responseFlag: frame.responseFlag,

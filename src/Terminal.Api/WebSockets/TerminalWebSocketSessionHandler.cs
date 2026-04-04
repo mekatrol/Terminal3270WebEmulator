@@ -49,6 +49,7 @@ internal sealed class TerminalWebSocketSessionHandler
         using var sessionCancellationSource =
             CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
         sessionCancellationSource.CancelAfter(proxyOptions.SessionLifetime);
+        var closeDescription = "Terminal proxy session closed.";
 
         try
         {
@@ -107,6 +108,7 @@ internal sealed class TerminalWebSocketSessionHandler
         }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
+            closeDescription = "Browser disconnected.";
             _logger.LogDebug("Browser request aborted while terminal proxy session was active.");
         }
         catch (OperationCanceledException)
@@ -117,6 +119,11 @@ internal sealed class TerminalWebSocketSessionHandler
                     "Closing terminal proxy session because the configured lifetime of {SessionLifetime} elapsed.",
                     proxyOptions.SessionLifetime.ToString());
             }
+        }
+        catch (EndOfStreamException exception)
+        {
+            closeDescription = "Terminal host session ended.";
+            _logger.LogInformation(exception, "Terminal host closed the TN3270/TN3270E session.");
         }
         catch (WebSocketException exception)
         {
@@ -135,10 +142,6 @@ internal sealed class TerminalWebSocketSessionHandler
         finally
         {
             await terminalService.DisconnectAsync(CancellationToken.None);
-
-            var closeDescription = context.RequestAborted.IsCancellationRequested
-                ? "Browser disconnected."
-                : "Terminal proxy session closed.";
 
             await CloseWebSocketIfOpenAsync(
                 webSocket,

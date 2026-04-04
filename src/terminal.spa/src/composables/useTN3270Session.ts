@@ -1,14 +1,9 @@
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 
 import { createTerminalSessionTransport } from '@/services/terminalSession'
 import { Tn3270TerminalScreen } from '@/services/tn3270Screen'
-import type {
-  TN3270Color,
-  TN3270ScreenSnapshot,
-  Tn3270AidKey,
-  Tn3270Frame,
-} from '@/types/TN3270'
+import type { TN3270Color, TN3270ScreenSnapshot, Tn3270AidKey, Tn3270Frame } from '@/types/TN3270'
 
 const transport = createTerminalSessionTransport()
 
@@ -59,13 +54,19 @@ function mapModifiedKeyToAid(event: KeyboardEvent): Tn3270AidKey | null {
 export function useTN3270Session(): {
   accessibleSummary: ComputedRef<string>
   handleKeydown: (event: KeyboardEvent) => Promise<void>
+  sessionLauncherMessage: ComputedRef<string>
   snapshot: Ref<TN3270ScreenSnapshot>
+  showSessionLauncher: ComputedRef<boolean>
+  startSession: () => Promise<void>
 } {
   let screen: Tn3270TerminalScreen | null = null
+  let isUnmounting = false
 
   const snapshot = ref<TN3270ScreenSnapshot>(
-    createInitialSnapshot('connecting', 'CONNECTING TO TERMINAL SESSION', 'yellow'),
+    createInitialSnapshot('disconnected', 'START A NEW TERMINAL SESSION', 'white'),
   )
+  const showSessionLauncher = ref(true)
+  const sessionLauncherMessage = ref('Start a new terminal session.')
 
   function updateSnapshot(
     connectionState: 'disconnected' | 'connecting' | 'connected',
@@ -77,14 +78,22 @@ export function useTN3270Session(): {
       createInitialSnapshot(connectionState, statusMessage, statusColor)
   }
 
-  async function connect(): Promise<void> {
+  function showLauncher(message: string): void {
+    showSessionLauncher.value = true
+    sessionLauncherMessage.value = message
+  }
+
+  async function startSession(): Promise<void> {
+    isUnmounting = false
     screen = null
+    showSessionLauncher.value = false
+    sessionLauncherMessage.value = 'Start a new terminal session.'
     updateSnapshot('connecting', 'CONNECTING TO TERMINAL SESSION', 'yellow')
 
     try {
       const ready = await transport.connect({
         onFrame(frame: Tn3270Frame) {
-          console.debug('[TN3270] processing inbound frame', {
+          console.log('[TN3270] processing inbound frame', {
             dataType: frame.dataType,
             payloadLength: frame.data.length,
           })
@@ -95,7 +104,7 @@ export function useTN3270Session(): {
           }
 
           screen.applyInboundRecord(frame.data)
-          console.debug('[TN3270] screen updated from host record', {
+          console.log('[TN3270] screen updated from host record', {
             rows: screen.rows,
             cols: screen.columns,
           })
@@ -104,33 +113,49 @@ export function useTN3270Session(): {
         onError(message) {
           console.error('[TN3270] session error', message)
           updateSnapshot('disconnected', message, 'red')
+          showLauncher('The terminal session could not be started. Try again.')
         },
-        onDisconnect() {
-          console.debug('[TN3270] session disconnected')
-          if (snapshot.value.connectionState !== 'disconnected') {
-            updateSnapshot('disconnected', 'TERMINAL SESSION DISCONNECTED', 'red')
+        onDisconnect(event) {
+          if (isUnmounting) {
+            return
           }
+
+          console.log('[TN3270] session disconnected')
+          if (snapshot.value.connectionState !== 'disconnected' || event.reason) {
+            const message =
+              event.reason === 'Terminal host session ended.'
+                ? 'TERMINAL SESSION ENDED'
+                : 'TERMINAL SESSION DISCONNECTED'
+            updateSnapshot('disconnected', message, 'red')
+          }
+
+          showLauncher('The terminal session ended. Start a new session.')
         },
       })
 
       screen = Tn3270TerminalScreen.fromTerminalType(ready.terminalType)
-      console.debug('[TN3270] screen model created', {
+      console.log('[TN3270] screen model created', {
         terminalType: ready.terminalType,
         rows: screen.rows,
         cols: screen.columns,
       })
       updateSnapshot('connected', `CONNECTED TO ${ready.host}:${ready.port}`, 'green')
     } catch (error) {
+      if (isUnmounting) {
+        return
+      }
+
       const message =
         error instanceof Error ? error.message : 'Unable to connect to terminal session.'
       console.error('[TN3270] connect failed', message)
       updateSnapshot('disconnected', message, 'red')
+      showLauncher('Unable to connect. Start a new session.')
     }
   }
 
   async function disconnect(): Promise<void> {
+    isUnmounting = true
     await transport.disconnect()
-    updateSnapshot('disconnected', 'TERMINAL SESSION CLOSED', 'red')
   }
 
   async function submitAid(aidKey: Tn3270AidKey): Promise<void> {
@@ -265,10 +290,6 @@ export function useTN3270Session(): {
     }
   }
 
-  onMounted(() => {
-    void connect()
-  })
-
   onBeforeUnmount(() => {
     void disconnect()
   })
@@ -278,6 +299,9 @@ export function useTN3270Session(): {
   return {
     accessibleSummary,
     handleKeydown,
+    sessionLauncherMessage: computed(() => sessionLauncherMessage.value),
     snapshot,
+    showSessionLauncher: computed(() => showSessionLauncher.value),
+    startSession,
   }
 }

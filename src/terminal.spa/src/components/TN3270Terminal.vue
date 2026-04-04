@@ -3,7 +3,7 @@
     <section
       ref="terminalRef"
       class="terminal-shell"
-      tabindex="0"
+      :tabindex="showSessionLauncher ? -1 : 0"
       role="application"
       aria-label="TN 3270 emulator"
       :aria-describedby="'terminal-instructions terminal-status'"
@@ -21,7 +21,19 @@
       </p>
 
       <div class="terminal-frame">
-        <div class="terminal-grid" data-testid="TN-3270-terminal" aria-hidden="true">
+        <section
+          v-if="showSessionLauncher"
+          class="session-launcher"
+          aria-labelledby="session-launcher-title"
+        >
+          <p class="session-launcher-eyebrow">HTTP SESSION READY</p>
+          <h3 id="session-launcher-title">Start a new terminal session</h3>
+          <p class="session-launcher-copy">{{ sessionLauncherMessage }}</p>
+          <button class="session-launcher-button" type="button" @click="startSession">
+            Start session
+          </button>
+        </section>
+        <div v-else class="terminal-grid" data-testid="TN-3270-terminal" aria-hidden="true">
           <div
             v-for="(row, rowIndex) in flattenedRows"
             :key="`row-${rowIndex}`"
@@ -45,7 +57,8 @@ import { useTN3270Session } from '@/composables/useTN3270Session'
 import type { TN3270Color, TerminalCell } from '@/types/TN3270'
 
 const terminalRef = ref<HTMLElement | null>(null)
-const { accessibleSummary, handleKeydown, snapshot } = useTN3270Session()
+const { accessibleSummary, handleKeydown, sessionLauncherMessage, showSessionLauncher, snapshot, startSession } =
+  useTN3270Session()
 
 const colorClassMap: Record<TN3270Color, string> = {
   neutral: 'cell-neutral',
@@ -86,6 +99,10 @@ const flattenedRows = computed(() =>
 )
 
 function focusTerminal(): void {
+  if (showSessionLauncher.value) {
+    return
+  }
+
   terminalRef.value?.focus()
 }
 </script>
@@ -175,6 +192,62 @@ function focusTerminal(): void {
     ),
     #081315;
   user-select: none;
+}
+
+.session-launcher {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 1rem;
+  min-height: 100%;
+  padding: min(5vw, 3rem);
+  border: 1px solid rgb(116 188 167 / 30%);
+  box-shadow:
+    inset 0 0 0 1px rgb(180 248 219 / 8%),
+    0 1.4rem 4rem rgb(0 0 0 / 45%);
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 18%), rgb(0 0 0 / 42%)),
+    radial-gradient(circle at top right, rgb(107 245 235 / 10%), transparent 32%),
+    #081315;
+}
+
+.session-launcher-eyebrow {
+  margin: 0;
+  color: #6bf5eb;
+  letter-spacing: 0.18em;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.session-launcher h3 {
+  margin: 0;
+  color: #f4f7fb;
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+}
+
+.session-launcher-copy {
+  max-width: 32rem;
+  margin: 0;
+  color: rgb(223 249 240 / 80%);
+  line-height: 1.6;
+}
+
+.session-launcher-button {
+  padding: 0.9rem 1.3rem;
+  border: 1px solid rgb(144 247 166 / 45%);
+  background: linear-gradient(135deg, #123228 0%, #1b5742 100%);
+  color: #f4f7fb;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.session-launcher-button:hover,
+.session-launcher-button:focus-visible {
+  border-color: rgb(144 247 166 / 85%);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(144 247 166 / 15%);
 }
 
 .terminal-row {

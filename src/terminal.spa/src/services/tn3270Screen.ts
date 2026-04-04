@@ -1,9 +1,4 @@
-import type {
-  TN3270Color,
-  TN3270ScreenSnapshot,
-  TerminalCell,
-  Tn3270AidKey,
-} from '@/types/TN3270'
+import type { TN3270Color, TN3270ScreenSnapshot, TerminalCell, Tn3270AidKey } from '@/types/TN3270'
 
 type TerminalFieldState = {
   attributeAddress: number
@@ -557,7 +552,7 @@ export class Tn3270TerminalScreen {
     }
 
     const command = record[0]!
-    console.debug('[TN3270] applyInboundRecord', {
+    console.log('[TN3270] applyInboundRecord', {
       command: `0x${command.toString(16).toUpperCase().padStart(2, '0')}`,
       length: record.length,
       firstBytes: Array.from(record.slice(0, 24)),
