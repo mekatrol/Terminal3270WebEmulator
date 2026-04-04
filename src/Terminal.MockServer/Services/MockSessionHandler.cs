@@ -26,6 +26,21 @@ internal sealed partial class MockSessionHandler(
 
     private enum SessionMode { Tn3270, Tn3270E }
 
+    private static readonly byte[] _addressTable =
+    [
+        0x40, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7,
+        0xC8, 0xC9, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F,
+        0x50, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7,
+        0xD8, 0xD9, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F,
+        0x60, 0x61, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7,
+        0xE8, 0xE9, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F,
+        0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7,
+        0xF8, 0xF9, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
+    ];
+    private static readonly Dictionary<byte, int> _addressDecodingTable = _addressTable
+        .Select(static (value, index) => new KeyValuePair<byte, int>(value, index))
+        .ToDictionary(static pair => pair.Key, static pair => pair.Value);
+    private static readonly Encoding _ebcdicEncoding = CreateEbcdicEncoding();
     private SessionMode _mode = SessionMode.Tn3270E;
     private ushort _sequenceNumber;
 
@@ -82,7 +97,9 @@ internal sealed partial class MockSessionHandler(
                 LogInputRecord(logger, inputDescription);
             }
 
-            if (!current.Navigation.TryGetValue(aidName, out var targetId))
+            var targetId = ResolveNavigationTarget(current, aidName, data);
+
+            if (targetId is null)
             {
                 LogUnhandledAid(logger, aidName);
                 continue;
@@ -661,6 +678,89 @@ internal sealed partial class MockSessionHandler(
         0x4C => "PF24",
         _ => $"0x{aid:X2}",
     };
+
+    private static Encoding CreateEbcdicEncoding()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return Encoding.GetEncoding(37);
+    }
+
+    private static string? ResolveNavigationTarget(ScreenDefinition current, string aidName, ReadOnlySpan<byte> data)
+    {
+        if (string.Equals(current.Id, "main-menu", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(aidName, "Enter", StringComparison.OrdinalIgnoreCase))
+        {
+            var fieldValues = ParseFieldValues(current, data);
+            if (fieldValues.TryGetValue("option", out var option))
+            {
+                return option switch
+                {
+                    "1" => "main-menu",
+                    "2" => "main-menu",
+                    "3" => "login",
+                    _ => "main-menu",
+                };
+            }
+        }
+
+        return current.Navigation.TryGetValue(aidName, out var targetId)
+            ? targetId
+            : null;
+    }
+
+    private static Dictionary<string, string> ParseFieldValues(ScreenDefinition screen, ReadOnlySpan<byte> data)
+    {
+        Dictionary<string, string> values = new(StringComparer.OrdinalIgnoreCase);
+
+        if (data.Length <= 3)
+        {
+            return values;
+        }
+
+        var offset = 3;
+        while (offset < data.Length)
+        {
+            if (data[offset] != 0x11 || offset + 2 >= data.Length)
+            {
+                break;
+            }
+
+            var address = DecodeBufferAddress(data[offset + 1], data[offset + 2]);
+            offset += 3;
+
+            var fieldStart = offset;
+            while (offset < data.Length && data[offset] != 0x11)
+            {
+                offset++;
+            }
+
+            var fieldBytes = data[fieldStart..offset].ToArray();
+            var field = screen.Fields.FirstOrDefault(candidate =>
+                !string.IsNullOrWhiteSpace(candidate.Id)
+                && (
+                    string.Equals(candidate.Type, "input", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(candidate.Type, "input-hidden", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(candidate.Type, "input-numeric", StringComparison.OrdinalIgnoreCase))
+                && BufferAddress(candidate.Row, candidate.Col, screen.Cols) == address);
+
+            if (field is null || string.IsNullOrWhiteSpace(field.Id))
+            {
+                continue;
+            }
+
+            values[field.Id] = _ebcdicEncoding.GetString(fieldBytes).TrimEnd();
+        }
+
+        return values;
+    }
+
+    private static int BufferAddress(int row, int col, int cols) =>
+        ((row - 1) * cols) + (col - 1);
+
+    private static int DecodeBufferAddress(byte first, byte second)
+    {
+        return (_addressDecodingTable[first] << 6) | _addressDecodingTable[second];
+    }
 
     private static string DescribeInboundRecord(ReadOnlySpan<byte> data)
     {

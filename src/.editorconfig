@@ -340,6 +340,7 @@ dotnet_diagnostic.CS1591.severity = none     # Missing XML comment for publicly 
 # Library / analyzer rules you explicitly chose to control.
 dotnet_diagnostic.SYSLIB1045.severity = none # Use GeneratedRegexAttribute
 dotnet_diagnostic.CA1304.severity = error    # Specify CultureInfo
+dotnet_diagnostic.CA1822.severity = error    # Mark members as static
 dotnet_diagnostic.CA1827.severity = error    # Do not use Count/LongCount when Any can be used
 dotnet_diagnostic.CA1854.severity = error    # Prefer IDictionary.TryGetValue
 dotnet_diagnostic.CA1859.severity = none     # Use concrete types when possible for performance
