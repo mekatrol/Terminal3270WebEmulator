@@ -14,80 +14,96 @@ fields:
     type: label
     text: "MAIN MENU"
     intensified: true
+    foreground: white
+    background: green
 
   - row: 4
     col: 29
     type: label
     text: "MOCK TN3270E SERVER"
+    foreground: yellow
 
   # ── Separator ──────────────────────────────────────────────────────────────
   - row: 6
     col: 2
     type: label
     text: "────────────────────────────────────────────────────────────────────────────"
+    foreground: turquoise
 
   # ── Menu options ────────────────────────────────────────────────────────────
   - row: 8
     col: 10
     type: label
     text: "Select an option and press Enter."
+    foreground: pale-green
 
   - row: 10
     col: 14
     type: label
     text: "1"
     intensified: true
+    foreground: red
 
   - row: 10
     col: 16
     type: label
     text: "Application 1 (demo screen)"
+    foreground: white
 
   - row: 11
     col: 14
     type: label
     text: "2"
     intensified: true
+    foreground: pink
 
   - row: 11
     col: 16
     type: label
     text: "Application 2 (demo screen)"
+    foreground: pale-turquoise
 
   - row: 12
     col: 14
     type: label
     text: "3"
     intensified: true
+    foreground: orange
 
   - row: 12
     col: 16
     type: label
     text: "Sign off"
+    foreground: grey
 
   # ── Selection input ─────────────────────────────────────────────────────────
   - row: 14
     col: 10
     type: label
     text: "Option ===>"
+    foreground: purple
 
   - row: 14
     col: 22
     type: input-numeric
     id: option
     length: 1
+    foreground: black
+    background: yellow
 
   # ── Separator ──────────────────────────────────────────────────────────────
   - row: 17
     col: 2
     type: label
     text: "────────────────────────────────────────────────────────────────────────────"
+    foreground: turquoise
 
   # ── Function key legend ─────────────────────────────────────────────────────
   - row: 23
     col: 2
     type: label
     text: "Enter=Select    PF3=Sign Off    PF12=Cancel"
+    foreground: orange
 
 navigation:
   Enter: main-menu

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Terminal.MockServer.Screens;
 
 /// <summary>
@@ -18,7 +20,11 @@ internal static class DataStreamEncoder
     // 3270 order codes
     private const byte _orderSetBufferAddress = 0x11;
     private const byte _orderStartField = 0x1D;
+    private const byte _orderStartFieldExtended = 0x29;
     private const byte _orderInsertCursor = 0x13;
+    private const byte _attributeTypeBase = 0xC0;
+    private const byte _attributeTypeForeground = 0x42;
+    private const byte _attributeTypeBackground = 0x45;
 
     // Base field-attribute values as interpreted by Terminal.Common:
     // bit 5 = protected, bit 4 = numeric, bits 3-2 = display, bit 0 = MDT.
@@ -97,8 +103,7 @@ internal static class DataStreamEncoder
             var attrAddr = (contentAddr - 1 + totalCells) % totalCells;
 
             EmitSba(stream, attrAddr);
-            stream.Add(_orderStartField);
-            stream.Add(AttributeFor(field));
+            EmitFieldDefinition(stream, field);
 
             // If the cursor falls exactly at the first content cell, insert the cursor order here.
             if (!cursorEmitted && contentAddr == cursorAddr)
@@ -150,6 +155,64 @@ internal static class DataStreamEncoder
             "input-numeric" => _attrUnprotectedNumeric,
             _ => _attrUnprotected,
         };
+
+    /// <summary>
+    /// Emits either a classic Start Field order or a Start Field Extended order.
+    /// The latter is required for 3279 foreground and background colours described by IBM's
+    /// 3270 data stream architecture. See IBM 3270 Data Stream Programmer's Reference,
+    /// "Start Field Extended (SFE)" and "Extended highlighting and color" orders:
+    /// https://publibfp.boulder.ibm.com/epubs/pdf/ga239005.pdf
+    /// </summary>
+    private static void EmitFieldDefinition(List<byte> stream, FieldDefinition field)
+    {
+        var baseAttribute = AttributeFor(field);
+        var foreground = TryGetColourValue(field.Foreground);
+        var background = TryGetColourValue(field.Background);
+
+        if (foreground is null && background is null)
+        {
+            stream.Add(_orderStartField);
+            stream.Add(baseAttribute);
+            return;
+        }
+
+        stream.Add(_orderStartFieldExtended);
+        stream.Add((byte)(1 + (foreground is null ? 0 : 1) + (background is null ? 0 : 1)));
+        stream.Add(_attributeTypeBase);
+        stream.Add(baseAttribute);
+
+        if (foreground is not null)
+        {
+            stream.Add(_attributeTypeForeground);
+            stream.Add(foreground.Value);
+        }
+
+        if (background is not null)
+        {
+            stream.Add(_attributeTypeBackground);
+            stream.Add(background.Value);
+        }
+    }
+
+    private static byte? TryGetColourValue(string? colour) => colour?.Trim().ToLower(CultureInfo.InvariantCulture) switch
+    {
+        null or "" or "default" => null,
+        "blue" => 0xF1,
+        "red" => 0xF2,
+        "pink" => 0xF3,
+        "green" => 0xF4,
+        "turquoise" => 0xF5,
+        "yellow" => 0xF6,
+        "white" => 0xF7,
+        "black" => 0xF8,
+        "deep-blue" => 0xF9,
+        "orange" => 0xFA,
+        "purple" => 0xFB,
+        "pale-green" => 0xFC,
+        "pale-turquoise" => 0xFD,
+        "grey" => 0xFE,
+        _ => throw new InvalidOperationException($"Unsupported 3270 colour '{colour}'."),
+    };
 
     private static byte ToEbcdic(char ch)
     {

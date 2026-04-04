@@ -15,53 +15,64 @@ fields:
     type: label
     text: "MOCK TN3270E SERVER"
     intensified: true
+    foreground: white
+    background: deep-blue
 
   - row: 5
     col: 34
     type: label
     text: "System Login"
+    foreground: yellow
 
   # ── Separator ──────────────────────────────────────────────────────────────
   - row: 7
     col: 2
     type: label
     text: "────────────────────────────────────────────────────────────────────────────"
+    foreground: turquoise
 
   # ── Username ────────────────────────────────────────────────────────────────
   - row: 10
     col: 14
     type: label
     text: "User ID  ==>"
+    foreground: green
 
   - row: 10
     col: 26
     type: input
     id: username
     length: 20
+    foreground: white
+    background: red
 
   # ── Password ────────────────────────────────────────────────────────────────
   - row: 12
     col: 14
     type: label
     text: "Password ==>"
+    foreground: pink
 
   - row: 12
     col: 27
     type: input-hidden
     id: password
     length: 20
+    background: blue
 
   # ── Separator ──────────────────────────────────────────────────────────────
   - row: 17
     col: 2
     type: label
     text: "────────────────────────────────────────────────────────────────────────────"
+    foreground: turquoise
 
   # ── Function key legend ─────────────────────────────────────────────────────
   - row: 23
     col: 2
     type: label
     text: "Enter=Sign On    PF3=Exit"
+    foreground: orange
 
 # Navigation: maps AID key names to screen IDs (or "exit" to close the session).
 navigation:

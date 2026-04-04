@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -9,6 +10,25 @@ namespace Terminal.MockServer.Screens;
 /// </summary>
 internal sealed partial class ScreenRegistry
 {
+    private static readonly HashSet<string> _supportedColours =
+    [
+        "default",
+        "blue",
+        "red",
+        "pink",
+        "green",
+        "turquoise",
+        "yellow",
+        "white",
+        "black",
+        "deep-blue",
+        "orange",
+        "purple",
+        "pale-green",
+        "pale-turquoise",
+        "grey",
+    ];
+
     private static readonly IDeserializer _deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
@@ -120,6 +140,9 @@ internal sealed partial class ScreenRegistry
             throw new InvalidOperationException(
                 $"Screen '{screen.Id}' in '{file}' has input field '{field.Id}' with non-positive length.");
         }
+
+        ValidateColour(screen.Id, file, field, "foreground", field.Foreground);
+        ValidateColour(screen.Id, file, field, "background", field.Background);
     }
 
     private static void ValidatePosition(
@@ -136,6 +159,28 @@ internal sealed partial class ScreenRegistry
             throw new InvalidOperationException(
                 $"Screen '{screenId}' in '{file}' has {name} outside the configured screen bounds.");
         }
+    }
+
+    private static void ValidateColour(
+        string screenId,
+        string file,
+        FieldDefinition field,
+        string propertyName,
+        string? colour)
+    {
+        if (string.IsNullOrWhiteSpace(colour))
+        {
+            return;
+        }
+
+        var normalized = colour.Trim().ToLower(CultureInfo.InvariantCulture);
+        if (_supportedColours.Contains(normalized))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Screen '{screenId}' in '{file}' has field '{field.Id}' at row {field.Row}, col {field.Col} with unsupported {propertyName} colour '{colour}'.");
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Screens directory not found: {Directory}")]

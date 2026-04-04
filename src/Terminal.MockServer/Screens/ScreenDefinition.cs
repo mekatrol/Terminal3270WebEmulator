@@ -79,4 +79,20 @@ internal sealed class FieldDefinition
 
     /// <summary>When true, the field is rendered at intensified brightness.</summary>
     public bool Intensified { get; set; }
+
+    /// <summary>
+    /// Optional 3279 foreground colour name for the field.
+    /// Supported values are <c>default</c>, <c>blue</c>, <c>red</c>, <c>pink</c>, <c>green</c>,
+    /// <c>turquoise</c>, <c>yellow</c>, <c>white</c>, <c>black</c>, <c>deep-blue</c>,
+    /// <c>orange</c>, <c>purple</c>, <c>pale-green</c>, <c>pale-turquoise</c>, and <c>grey</c>.
+    /// When omitted, the mock server leaves the field at the terminal default colour.
+    /// </summary>
+    public string? Foreground { get; set; }
+
+    /// <summary>
+    /// Optional 3279 background colour name for the field.
+    /// Supported values match <see cref="Foreground"/>.
+    /// When omitted, the mock server leaves the field at the terminal default colour.
+    /// </summary>
+    public string? Background { get; set; }
 }
