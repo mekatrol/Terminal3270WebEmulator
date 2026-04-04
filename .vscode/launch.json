@@ -1,5 +1,15 @@
 {
   "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Launch Terminal.Api with MockServer",
+      "configurations": [
+        "Launch Terminal.MockServer",
+        "Launch Terminal.Api"
+      ],
+      "stopAll": true
+    }
+  ],
   "configurations": [
     {
       "name": "Launch Terminal.MockServer",

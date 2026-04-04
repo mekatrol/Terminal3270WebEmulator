@@ -416,9 +416,7 @@ internal sealed partial class MockSessionHandler(
                     continue;
                 }
 
-                // IAC <other> is an out-of-band TELNET command in the data phase; consume the
-                // option byte and continue scanning for the real record terminator.
-                _ = await ReadByteAsync(cancellationToken);
+                await ConsumeTelnetCommandAsync(b, cancellationToken);
                 continue;
             }
 
@@ -480,6 +478,27 @@ internal sealed partial class MockSessionHandler(
         }
 
         return [.. data];
+    }
+
+    private async Task ConsumeTelnetCommandAsync(byte command, CancellationToken cancellationToken)
+    {
+        switch (command)
+        {
+            case Telnet.Will:
+            case Telnet.Wont:
+            case Telnet.Do:
+            case Telnet.Dont:
+                _ = await ReadByteAsync(cancellationToken);
+                return;
+
+            case Telnet.Sb:
+                _ = await ReadByteAsync(cancellationToken); // option byte
+                _ = await ReadSubnegotiationDataAsync(cancellationToken);
+                return;
+
+            default:
+                return;
+        }
     }
 
     private async Task<byte> ReadByteAsync(CancellationToken cancellationToken)
