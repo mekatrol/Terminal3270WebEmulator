@@ -8,6 +8,9 @@ import router from '../router'
 const showSessionLauncher = ref(true)
 const sessionLauncherMessage = ref('Start a new terminal session.')
 const startSession = vi.fn(async () => {})
+const fetchMock = vi.fn<typeof fetch>()
+
+vi.stubGlobal('fetch', fetchMock)
 
 vi.mock('@/composables/useTN3270Session', () => ({
   useTN3270Session: (): ReturnType<
@@ -63,6 +66,15 @@ describe('App', () => {
     showSessionLauncher.value = true
     sessionLauncherMessage.value = 'Start a new terminal session.'
     startSession.mockClear()
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ sessions: [] }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    )
   })
 
   it('starts on the HTTP-side start-session page for authorized users', async () => {
@@ -167,5 +179,22 @@ describe('App', () => {
     await flushPromises()
 
     expect(document.activeElement).toBe(wrapper.get('[role="application"]').element)
+  })
+
+  it('renders the admin sessions route with a semantic table', async () => {
+    router.push('/admin/sessions')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.get('table').element.tagName).toBe('TABLE')
+    expect(wrapper.text()).toContain('Terminal sessions')
+    expect(wrapper.text()).toContain('No terminal sessions are currently recorded.')
   })
 })

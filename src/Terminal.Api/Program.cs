@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using Terminal.Api.Admin;
 using Terminal.Api.Logging;
 using Terminal.Api.Options;
 using Terminal.Api.WebSockets;
@@ -7,9 +8,14 @@ using Terminal.Data.Extensions;
 
 public partial class Program
 {
+    private const string _spaCorsPolicyName = "TerminalSpa";
+
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+        var allowedSpaOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>();
 
         builder.Logging.ClearProviders();
         builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
@@ -27,7 +33,31 @@ public partial class Program
         builder.Services.Configure<TerminalProxyOptions>(
             builder.Configuration.GetSection(TerminalProxyOptions.SectionName));
         builder.Services.AddSingleton<ILoggerProvider, FileLoggerProvider>();
+        builder.Services.AddSingleton<ActiveTerminalSessionRegistry>();
         builder.Services.AddSingleton<TerminalWebSocketSessionHandler>();
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy(_spaCorsPolicyName, policyBuilder =>
+            {
+                if (allowedSpaOrigins is { Length: > 0 })
+                {
+                    policyBuilder
+                        .WithOrigins(allowedSpaOrigins)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                    return;
+                }
+
+                policyBuilder
+                    .WithOrigins(
+                        "http://localhost:5173",
+                        "https://localhost:5173",
+                        "http://127.0.0.1:5173",
+                        "https://127.0.0.1:5173")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
 
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
@@ -51,6 +81,8 @@ public partial class Program
         });
 
         app.UseHttpsRedirection();
+        app.UseCors(_spaCorsPolicyName);
+        app.MapAdminSessionEndpoints();
 
         app.Map(terminalProxyOptions.WebSocketPath, static async context =>
         {

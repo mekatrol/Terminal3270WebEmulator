@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Terminal.Api.Admin;
 using Terminal.Api.Options;
 using Terminal.Common.Models;
 using Terminal.Common.Options;
@@ -18,12 +19,14 @@ internal sealed class TerminalWebSocketSessionHandler(
     IServiceScopeFactory serviceScopeFactory,
     IOptions<TerminalProxyOptions> terminalProxyOptions,
     IOptions<Tn3270EOptions> tn3270EOptions,
+    ActiveTerminalSessionRegistry sessionRegistry,
     ILogger<TerminalWebSocketSessionHandler> logger)
 {
     private static readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web);
     private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
     private readonly IOptions<TerminalProxyOptions> _terminalProxyOptions = terminalProxyOptions;
     private readonly IOptions<Tn3270EOptions> _tn3270EOptions = tn3270EOptions;
+    private readonly ActiveTerminalSessionRegistry _sessionRegistry = sessionRegistry;
     private readonly ILogger<TerminalWebSocketSessionHandler> _logger = logger;
 
     public async Task HandleAsync(HttpContext context)
@@ -51,6 +54,11 @@ internal sealed class TerminalWebSocketSessionHandler(
             context,
             terminalDataContext,
             sessionCancellationSource.Token);
+
+        if (trackedSession is not null)
+        {
+            _sessionRegistry.Register(trackedSession.TerminalSessionId, sessionCancellationSource);
+        }
 
         try
         {
@@ -114,7 +122,19 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
         catch (OperationCanceledException)
         {
-            if (_logger.IsEnabled(LogLevel.Information))
+            if (trackedSession is not null &&
+                _sessionRegistry.WasTerminationRequested(trackedSession.TerminalSessionId))
+            {
+                closeDescription = "Terminal session terminated by administrator.";
+
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation(
+                        "Terminal proxy session {TerminalSessionId} was terminated by an administrator.",
+                        trackedSession.TerminalSessionId);
+                }
+            }
+            else if (_logger.IsEnabled(LogLevel.Information))
             {
                 _logger.LogInformation(
                     "Closing terminal proxy session because the configured lifetime of {SessionLifetime} elapsed.",
@@ -143,6 +163,12 @@ internal sealed class TerminalWebSocketSessionHandler(
         finally
         {
             await terminalService.DisconnectAsync(CancellationToken.None);
+
+            if (trackedSession is not null)
+            {
+                _sessionRegistry.Unregister(trackedSession.TerminalSessionId);
+            }
+
             await CompleteTrackedSessionAsync(
                 trackedSession,
                 terminalDataContext,

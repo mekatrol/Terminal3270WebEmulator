@@ -11,6 +11,7 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "run-s type-check lint:*",
+    "audit": "npm audit",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/"
