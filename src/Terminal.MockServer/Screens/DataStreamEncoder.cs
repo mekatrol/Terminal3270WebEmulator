@@ -9,8 +9,11 @@ internal static class DataStreamEncoder
     // 3270 command codes
     private const byte _commandEraseWrite = 0xF5;
 
-    // Write Control Character: reset MDT and restore the keyboard.
-    private const byte _wcc = 0xC2;
+    // Standard erase-write WCC for interactive screens:
+    // - bit 6 restores/unlocks the keyboard
+    // - bit 7 resets MDT bits before the new screen is written
+    // 0xC3 is the common interoperable value used for basic input-capable 3270 screens.
+    private const byte _wcc = 0xC3;
 
     // 3270 order codes
     private const byte _orderSetBufferAddress = 0x11;

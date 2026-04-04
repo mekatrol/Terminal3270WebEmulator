@@ -62,21 +62,29 @@ internal sealed partial class MockSessionHandler(
 
             if (frame.DataType != Tn3270EDataType.Data3270)
             {
+                LogIgnoredFrameType(logger, frame.DataType);
                 continue;
             }
 
             var data = frame.Data.Span;
             if (data.IsEmpty)
             {
+                LogEmptyInputRecord(logger);
                 continue;
             }
 
             var aidByte = data[0];
             var aidName = AidName(aidByte);
             LogAidReceived(logger, aidName, aidByte);
+            if (logger.IsEnabled(LogLevel.Debug))
+            {
+                var inputDescription = DescribeInboundRecord(data);
+                LogInputRecord(logger, inputDescription);
+            }
 
             if (!current.Navigation.TryGetValue(aidName, out var targetId))
             {
+                LogUnhandledAid(logger, aidName);
                 continue;
             }
 
@@ -635,6 +643,71 @@ internal sealed partial class MockSessionHandler(
         _ => $"0x{aid:X2}",
     };
 
+    private static string DescribeInboundRecord(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            return "Empty input record";
+        }
+
+        var builder = new StringBuilder();
+        builder.Append("Aid=");
+        builder.Append(AidName(data[0]));
+        builder.Append(" Cursor=");
+
+        if (data.Length >= 3)
+        {
+            builder.Append($"0x{data[1]:X2}{data[2]:X2}");
+        }
+        else
+        {
+            builder.Append("missing");
+        }
+
+        var offset = 3;
+        while (offset < data.Length)
+        {
+            if (data[offset] != 0x11)
+            {
+                builder.Append($" Raw=0x{data[offset]:X2}");
+                offset++;
+                continue;
+            }
+
+            if (offset + 2 >= data.Length)
+            {
+                builder.Append(" SBA=truncated");
+                break;
+            }
+
+            builder.Append($" SBA=0x{data[offset + 1]:X2}{data[offset + 2]:X2}");
+            offset += 3;
+
+            var textStart = offset;
+            while (offset < data.Length && data[offset] != 0x11)
+            {
+                offset++;
+            }
+
+            if (offset > textStart)
+            {
+                var ebcdicBytes = data[textStart..offset].ToArray();
+                var decoded = DecodeEbcdic(ebcdicBytes);
+                builder.Append(" Text='");
+                builder.Append(decoded.TrimEnd());
+                builder.Append('\'');
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static string DecodeEbcdic(byte[] bytes)
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return Encoding.GetEncoding(37).GetString(bytes);
+    }
+
     // -------------------------------------------------------------------------
     // Logger messages
     // -------------------------------------------------------------------------
@@ -678,6 +751,18 @@ internal sealed partial class MockSessionHandler(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "AID received: {AidName} (0x{AidByte:X2})")]
     private static partial void LogAidReceived(ILogger logger, string aidName, byte aidByte);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Input record: {Description}")]
+    private static partial void LogInputRecord(ILogger logger, string description);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Ignoring non-3270 frame type: {DataType}")]
+    private static partial void LogIgnoredFrameType(ILogger logger, Tn3270EDataType dataType);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Received empty input record")]
+    private static partial void LogEmptyInputRecord(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "No navigation target configured for AID {AidName}")]
+    private static partial void LogUnhandledAid(ILogger logger, string aidName);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Session ended by {AidName} navigation to 'exit'")]
     private static partial void LogExiting(ILogger logger, string aidName);

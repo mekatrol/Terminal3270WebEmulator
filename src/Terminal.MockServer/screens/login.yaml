@@ -5,8 +5,8 @@ description: System Login
 rows: 24
 cols: 80
 cursor:
-  row: 12
-  col: 22
+  row: 10
+  col: 26
 
 fields:
   # ── Title ──────────────────────────────────────────────────────────────────
