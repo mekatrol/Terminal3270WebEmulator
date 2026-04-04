@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Terminal.Common.Protocol;
 using Terminal.Common.Terminal;
+using Terminal.MockServer.Logging;
 using Terminal.MockServer.Screens;
 using Terminal.MockServer.Services;
 
@@ -21,6 +22,21 @@ internal sealed class Program
         }
 
         var host = Host.CreateDefaultBuilder(args)
+            .ConfigureLogging((context, logging) =>
+            {
+                logging.ClearProviders();
+                logging.AddConfiguration(context.Configuration.GetSection("Logging"));
+
+                if (context.HostingEnvironment.IsDevelopment())
+                {
+                    // Keep development diagnostics available in the debugger without relying on stdout.
+                    logging.AddDebug();
+                }
+
+                logging.Services.Configure<FileLoggerOptions>(
+                    context.Configuration.GetSection(FileLoggerOptions.SectionName));
+                logging.Services.AddSingleton<ILoggerProvider, FileLoggerProvider>();
+            })
             .ConfigureServices((context, services) =>
             {
                 services
