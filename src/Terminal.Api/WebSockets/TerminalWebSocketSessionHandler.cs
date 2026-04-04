@@ -14,25 +14,17 @@ using Terminal.Data.Models;
 
 namespace Terminal.Api.WebSockets;
 
-internal sealed class TerminalWebSocketSessionHandler
+internal sealed class TerminalWebSocketSessionHandler(
+    IServiceScopeFactory serviceScopeFactory,
+    IOptions<TerminalProxyOptions> terminalProxyOptions,
+    IOptions<Tn3270EOptions> tn3270EOptions,
+    ILogger<TerminalWebSocketSessionHandler> logger)
 {
     private static readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web);
-    private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly IOptions<TerminalProxyOptions> _terminalProxyOptions;
-    private readonly IOptions<Tn3270EOptions> _tn3270EOptions;
-    private readonly ILogger<TerminalWebSocketSessionHandler> _logger;
-
-    public TerminalWebSocketSessionHandler(
-        IServiceScopeFactory serviceScopeFactory,
-        IOptions<TerminalProxyOptions> terminalProxyOptions,
-        IOptions<Tn3270EOptions> tn3270EOptions,
-        ILogger<TerminalWebSocketSessionHandler> logger)
-    {
-        _serviceScopeFactory = serviceScopeFactory;
-        _terminalProxyOptions = terminalProxyOptions;
-        _tn3270EOptions = tn3270EOptions;
-        _logger = logger;
-    }
+    private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
+    private readonly IOptions<TerminalProxyOptions> _terminalProxyOptions = terminalProxyOptions;
+    private readonly IOptions<Tn3270EOptions> _tn3270EOptions = tn3270EOptions;
+    private readonly ILogger<TerminalWebSocketSessionHandler> _logger = logger;
 
     public async Task HandleAsync(HttpContext context)
     {
