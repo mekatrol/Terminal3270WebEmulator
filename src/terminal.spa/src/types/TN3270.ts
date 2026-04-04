@@ -7,30 +7,18 @@ export type TN3270Color =
   | 'turquoise'
   | 'yellow'
   | 'white'
-
-export type TerminalFieldDefinition = {
-  id: string
-  row: number
-  col: number
-  length: number
-  label: string
-  labelColor: TN3270Color
-  value: string
-  protected: boolean
-  intensified?: boolean
-}
-
-export type TerminalStaticText = {
-  row: number
-  col: number
-  text: string
-  color: TN3270Color
-  intensified?: boolean
-}
+  | 'black'
+  | 'deepBlue'
+  | 'orange'
+  | 'purple'
+  | 'paleGreen'
+  | 'paleTurquoise'
+  | 'grey'
 
 export type TerminalCell = {
   char: string
   color: TN3270Color
+  backgroundColor: TN3270Color
   protected: boolean
   intensified: boolean
   fieldId: string | null
@@ -52,8 +40,58 @@ export type TN3270ScreenSnapshot = {
   title: string
 }
 
-export type TN3270SessionBootstrap = {
-  title: string
-  instructions: TerminalStaticText[]
-  fields: TerminalFieldDefinition[]
+export type SessionReadyMessage = {
+  type: 'session-ready'
+  host: string
+  port: number
+  terminalType: string
+  deviceName: string | null
+  sessionLifetime: string
 }
+
+export type SessionErrorMessage = {
+  type: 'session-error'
+  message: string
+}
+
+export type SessionControlMessage = SessionReadyMessage | SessionErrorMessage
+
+export type Tn3270Frame = {
+  dataType: number
+  requestFlag: number
+  responseFlag: number
+  sequenceNumber: number
+  data: Uint8Array
+}
+
+export type Tn3270AidKey =
+  | 'ENTER'
+  | 'CLEAR'
+  | 'SYSREQ'
+  | 'PA1'
+  | 'PA2'
+  | 'PA3'
+  | 'PF1'
+  | 'PF2'
+  | 'PF3'
+  | 'PF4'
+  | 'PF5'
+  | 'PF6'
+  | 'PF7'
+  | 'PF8'
+  | 'PF9'
+  | 'PF10'
+  | 'PF11'
+  | 'PF12'
+  | 'PF13'
+  | 'PF14'
+  | 'PF15'
+  | 'PF16'
+  | 'PF17'
+  | 'PF18'
+  | 'PF19'
+  | 'PF20'
+  | 'PF21'
+  | 'PF22'
+  | 'PF23'
+  | 'PF24'

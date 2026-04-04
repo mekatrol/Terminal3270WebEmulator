@@ -1,129 +1,217 @@
-import type { TN3270ScreenSnapshot, TN3270SessionBootstrap } from '@/types/TN3270'
+import type { SessionControlMessage, SessionReadyMessage, Tn3270Frame } from '@/types/TN3270'
 
 export interface TerminalSessionTransport {
-  connect(): Promise<TN3270SessionBootstrap>
+  connect(handlers: {
+    onDisconnect: () => void
+    onError: (message: string) => void
+    onFrame: (frame: Tn3270Frame) => void
+  }): Promise<SessionReadyMessage>
   disconnect(): Promise<void>
-  submitAidKey(aidKey: string, payload: Record<string, string>): Promise<void>
+  sendFrame(frame: Tn3270Frame): Promise<void>
 }
 
-export class MockTerminalSessionTransport implements TerminalSessionTransport {
-  async connect(): Promise<TN3270SessionBootstrap> {
-    return {
-      title: 'TN 3270 INFORMATION DISPLAY',
-      instructions: [
-        {
-          row: 13,
-          col: 8,
-          text: 'TYPE INTO THE UNPROTECTED FIELDS. ENTER OR TAB ADVANCES TO THE NEXT FIELD.',
-          color: 'blue',
-        },
-        {
-          row: 14,
-          col: 8,
-          text: 'THIS SESSION SERVICE STUB WILL LATER BE FED FROM HOST 3270 DATA OVER WSS.',
-          color: 'turquoise',
-        },
-      ],
-      fields: [
-        {
-          id: 'system',
-          row: 2,
-          col: 34,
-          length: 22,
-          label: 'SYSTEM:',
-          labelColor: 'green',
-          value: 'TERMINAL3270 DEMO',
-          protected: true,
-        },
-        {
-          id: 'sessionId',
-          row: 4,
-          col: 34,
-          length: 18,
-          label: 'SESSION ID . . . .:',
-          labelColor: 'neutral',
-          value: 'A17C9',
-          protected: true,
-        },
-        {
-          id: 'user',
-          row: 6,
-          col: 34,
-          length: 18,
-          label: 'USER . . . . . . .:',
-          labelColor: 'neutral',
-          value: 'OPERATOR',
-          protected: false,
-        },
-        {
-          id: 'account',
-          row: 8,
-          col: 34,
-          length: 18,
-          label: 'ACCOUNT . . . . .:',
-          labelColor: 'neutral',
-          value: 'CICS001',
-          protected: false,
-        },
-        {
-          id: 'password',
-          row: 10,
-          col: 34,
-          length: 18,
-          label: 'PASSWORD . . . . .:',
-          labelColor: 'yellow',
-          value: '',
-          protected: false,
-          intensified: true,
-        },
-        {
-          id: 'command',
-          row: 12,
-          col: 34,
-          length: 18,
-          label: 'COMMAND . . . . .:',
-          labelColor: 'yellow',
-          value: '',
-          protected: false,
-          intensified: true,
-        },
-        {
-          id: 'pfkeys',
-          row: 17,
-          col: 8,
-          length: 66,
-          label: 'PF3=EXIT  PF5=REFRESH  ENTER=SEND  TAB=NEXT FIELD  SHIFT+TAB=PREV FIELD',
-          labelColor: 'pink',
-          value: '',
-          protected: true,
-        },
-        {
-          id: 'colors',
-          row: 19,
-          col: 8,
-          length: 70,
-          label: '3270 COLOR MAP: NEUTRAL BLUE RED PINK GREEN TURQUOISE YELLOW WHITE',
-          labelColor: 'white',
-          value: '',
-          protected: true,
-        },
-      ],
-    }
+function decodeFrame(payload: ArrayBuffer): Tn3270Frame {
+  const bytes = new Uint8Array(payload)
+
+  if (bytes.length < 5) {
+    throw new Error('Terminal proxy binary frame is shorter than the TN3270E header.')
+  }
+
+  return {
+    dataType: bytes[0] ?? 0,
+    requestFlag: bytes[1] ?? 0,
+    responseFlag: bytes[2] ?? 0,
+    sequenceNumber: ((bytes[3] ?? 0) << 8) | (bytes[4] ?? 0),
+    data: bytes.slice(5),
+  }
+}
+
+function describeDataType(dataType: number): string {
+  switch (dataType) {
+    case 0x00:
+      return 'Data3270'
+    case 0x01:
+      return 'ScsData'
+    case 0x02:
+      return 'Response'
+    case 0x03:
+      return 'BindImage'
+    case 0x04:
+      return 'UnbindImage'
+    case 0x05:
+      return 'NvtData'
+    case 0x06:
+      return 'Request'
+    case 0x07:
+      return 'SscpLuData'
+    case 0x08:
+      return 'PrintEod'
+    default:
+      return `Unknown(0x${dataType.toString(16).toUpperCase().padStart(2, '0')})`
+  }
+}
+
+function encodeFrame(frame: Tn3270Frame): Uint8Array {
+  const payload = new Uint8Array(5 + frame.data.length)
+  payload[0] = frame.dataType
+  payload[1] = frame.requestFlag
+  payload[2] = frame.responseFlag
+  payload[3] = (frame.sequenceNumber >> 8) & 0xff
+  payload[4] = frame.sequenceNumber & 0xff
+  payload.set(frame.data, 5)
+  return payload
+}
+
+function parseControlMessage(rawValue: string): SessionControlMessage {
+  const message = JSON.parse(rawValue) as Partial<SessionControlMessage>
+
+  if (message.type === 'session-ready') {
+    return message as SessionReadyMessage
+  }
+
+  if (message.type === 'session-error' && typeof message.message === 'string') {
+    return message as SessionControlMessage
+  }
+
+  throw new Error('Received an unknown terminal proxy control message.')
+}
+
+function resolveTerminalWebSocketUrl(): string {
+  const configuredUrl = import.meta.env.VITE_TERMINAL_WS_URL
+  if (configuredUrl) {
+    return configuredUrl
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.host}/ws/terminal`
+}
+
+export class WebSocketTerminalSessionTransport implements TerminalSessionTransport {
+  private socket: WebSocket | null = null
+
+  async connect(handlers: {
+    onDisconnect: () => void
+    onError: (message: string) => void
+    onFrame: (frame: Tn3270Frame) => void
+  }): Promise<SessionReadyMessage> {
+    await this.disconnect()
+
+    const webSocketUrl = resolveTerminalWebSocketUrl()
+    console.log('[TN3270] connecting websocket', { url: webSocketUrl })
+
+    const socket = new WebSocket(webSocketUrl)
+    socket.binaryType = 'arraybuffer'
+
+    const ready = await new Promise<SessionReadyMessage>((resolve, reject) => {
+      let settled = false
+
+      const fail = (error: Error): void => {
+        if (settled) {
+          return
+        }
+
+        settled = true
+        reject(error)
+      }
+
+      socket.addEventListener('open', () => {
+        console.log('[TN3270] websocket open', { url: webSocketUrl })
+      })
+
+      socket.addEventListener('close', (event) => {
+        this.socket = null
+        handlers.onDisconnect()
+        console.log('[TN3270] websocket close', {
+          url: webSocketUrl,
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        })
+
+        if (!settled) {
+          fail(
+            new Error(`Terminal proxy WebSocket closed before startup completed (${event.code}).`),
+          )
+        }
+      })
+
+      socket.addEventListener('error', () => {
+        console.error('[TN3270] websocket error', { url: webSocketUrl })
+        fail(new Error('Unable to open the terminal proxy WebSocket connection.'))
+      })
+
+      socket.addEventListener('message', (event) => {
+        if (typeof event.data === 'string') {
+          const controlMessage = parseControlMessage(event.data)
+
+          if (controlMessage.type === 'session-error') {
+            handlers.onError(controlMessage.message)
+            fail(new Error(controlMessage.message))
+            return
+          }
+
+          if (!settled) {
+            settled = true
+            console.log('[TN3270] session ready', controlMessage)
+            resolve(controlMessage)
+          }
+
+          return
+        }
+
+        if (event.data instanceof ArrayBuffer) {
+          const frame = decodeFrame(event.data)
+          console.debug('[TN3270] frame received', {
+            dataType: describeDataType(frame.dataType),
+            requestFlag: frame.requestFlag,
+            responseFlag: frame.responseFlag,
+            sequenceNumber: frame.sequenceNumber,
+            payloadLength: frame.data.length,
+            firstBytes: Array.from(frame.data.slice(0, 16)),
+          })
+          handlers.onFrame(frame)
+        }
+      })
+    })
+
+    this.socket = socket
+    console.log('[TN3270] connect resolved', { url: webSocketUrl })
+    return ready
   }
 
   async disconnect(): Promise<void> {
-    return
+    const socket = this.socket
+    this.socket = null
+
+    if (!socket) {
+      return
+    }
+
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+      socket.close(1000, 'Terminal SPA session closed.')
+    }
   }
 
-  async submitAidKey(_aidKey: string, _payload: Record<string, string>): Promise<void> {
-    return
+  async sendFrame(frame: Tn3270Frame): Promise<void> {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return
+    }
+
+    const payload = encodeFrame(frame)
+    const buffer = new ArrayBuffer(payload.byteLength)
+    new Uint8Array(buffer).set(payload)
+    console.debug('[TN3270] frame sent', {
+      dataType: describeDataType(frame.dataType),
+      requestFlag: frame.requestFlag,
+      responseFlag: frame.responseFlag,
+      sequenceNumber: frame.sequenceNumber,
+      payloadLength: frame.data.length,
+      firstBytes: Array.from(frame.data.slice(0, 16)),
+    })
+    this.socket.send(buffer)
   }
 }
 
 export function createTerminalSessionTransport(): TerminalSessionTransport {
-  return new MockTerminalSessionTransport()
-}
-
-export function summarizeSnapshot(snapshot: TN3270ScreenSnapshot): string {
-  return `${snapshot.title}. ${snapshot.statusMessage}. ${snapshot.connectionState}.`
+  return new WebSocketTerminalSessionTransport()
 }

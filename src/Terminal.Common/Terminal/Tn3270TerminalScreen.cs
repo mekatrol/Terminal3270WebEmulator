@@ -297,6 +297,36 @@ public sealed class Tn3270TerminalScreen
     public (int Row, int Column) GetCursorCoordinates() =>
         (CursorAddress / Columns, CursorAddress % Columns);
 
+    /// <summary>
+    /// Moves the cursor to the first editable cell of the current field.
+    /// </summary>
+    public bool MoveCursorToFieldStart()
+    {
+        var fieldIndex = GetFieldIndexAt(CursorAddress);
+        if (fieldIndex < 0)
+        {
+            return false;
+        }
+
+        CursorAddress = _fields[fieldIndex].StartAddress;
+        return true;
+    }
+
+    /// <summary>
+    /// Moves the cursor to the last editable cell of the current field.
+    /// </summary>
+    public bool MoveCursorToFieldEnd()
+    {
+        var fieldIndex = GetFieldIndexAt(CursorAddress);
+        if (fieldIndex < 0)
+        {
+            return false;
+        }
+
+        CursorAddress = _fields[fieldIndex].EndAddress;
+        return true;
+    }
+
     private static Encoding CreateEbcdicEncoding()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);

@@ -1,370 +1,255 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 
-import { createTerminalSessionTransport, summarizeSnapshot } from '@/services/terminalSession'
+import { createTerminalSessionTransport } from '@/services/terminalSession'
+import { Tn3270TerminalScreen } from '@/services/tn3270Screen'
 import type {
   TN3270Color,
   TN3270ScreenSnapshot,
-  TN3270SessionBootstrap,
-  TerminalCell,
-  TerminalFieldDefinition,
+  Tn3270AidKey,
+  Tn3270Frame,
 } from '@/types/TN3270'
-
-const ROWS = 24
-const COLS = 80
-const BLANK = ' '
 
 const transport = createTerminalSessionTransport()
 
-function padText(value: string, length: number): string {
-  return value.slice(0, length).padEnd(length, BLANK)
-}
-
-function setScreenCell(
-  screen: TerminalCell[][],
-  row: number,
-  col: number,
-  cell: TerminalCell,
-): void {
-  const targetRow = screen[row]
-  if (!targetRow || col < 0 || col >= targetRow.length) {
-    return
-  }
-
-  targetRow[col] = cell
-}
-
-function createEmptyScreen(): TerminalCell[][] {
-  return Array.from({ length: ROWS }, () =>
-    Array.from(
-      { length: COLS },
-      (): TerminalCell => ({
-        char: BLANK,
-        color: 'neutral',
-        protected: true,
-        intensified: false,
-        fieldId: null,
-      }),
-    ),
-  )
-}
-
-function createConnectedSnapshot(
-  bootstrap: TN3270SessionBootstrap,
-  fields: TerminalFieldDefinition[],
-  activeFieldIndex: number,
-  cursorOffset: number,
+function createInitialSnapshot(
+  connectionState: 'connecting' | 'disconnected' | 'connected',
   statusMessage: string,
   statusColor: TN3270Color,
 ): TN3270ScreenSnapshot {
-  const screen = createEmptyScreen()
+  const screen = Tn3270TerminalScreen.fromTerminalType('IBM-3279-2-E')
+  return screen.toSnapshot(connectionState, statusMessage, statusColor)
+}
 
-  for (let row = 0; row < ROWS; row += 1) {
-    for (let col = 0; col < COLS; col += 1) {
-      if (row === 0 || row === ROWS - 1) {
-        setScreenCell(screen, row, col, {
-          char: BLANK,
-          color: 'blue',
-          protected: true,
-          intensified: true,
-          fieldId: null,
-        })
-      }
-    }
+function summarizeSnapshot(snapshot: TN3270ScreenSnapshot): string {
+  return `${snapshot.title}. ${snapshot.statusMessage}. ${snapshot.connectionState}.`
+}
+
+function mapFunctionKeyToAid(event: KeyboardEvent): Tn3270AidKey | null {
+  if (!/^F\d{1,2}$/.test(event.key)) {
+    return null
   }
 
-  const banner = ' TERMINAL 3270 EMULATOR '
-  for (let index = 0; index < banner.length; index += 1) {
-    setScreenCell(screen, 0, index + 2, {
-      char: banner[index] ?? BLANK,
-      color: 'white',
-      protected: true,
-      intensified: true,
-      fieldId: null,
-    })
+  const functionNumber = Number.parseInt(event.key.slice(1), 10)
+  if (Number.isNaN(functionNumber) || functionNumber < 1 || functionNumber > 12) {
+    return null
   }
 
-  for (let index = 0; index < bootstrap.title.length; index += 1) {
-    setScreenCell(screen, 1, 25 + index, {
-      char: bootstrap.title[index] ?? BLANK,
-      color: 'turquoise',
-      protected: true,
-      intensified: true,
-      fieldId: null,
-    })
+  const pfNumber = event.shiftKey ? functionNumber + 12 : functionNumber
+  return `PF${pfNumber}` as Tn3270AidKey
+}
+
+function mapModifiedKeyToAid(event: KeyboardEvent): Tn3270AidKey | null {
+  if (!event.ctrlKey) {
+    return null
   }
 
-  for (const item of bootstrap.instructions) {
-    for (let index = 0; index < item.text.length; index += 1) {
-      setScreenCell(screen, item.row, item.col + index, {
-        char: item.text[index] ?? BLANK,
-        color: item.color,
-        protected: true,
-        intensified: item.intensified ?? false,
-        fieldId: null,
-      })
-    }
-  }
-
-  for (const field of fields) {
-    if (field.label) {
-      const labelStart = Math.max(field.col - field.label.length - 1, 0)
-      for (let index = 0; index < field.label.length; index += 1) {
-        setScreenCell(screen, field.row, labelStart + index, {
-          char: field.label[index] ?? BLANK,
-          color: field.labelColor,
-          protected: true,
-          intensified: field.intensified ?? false,
-          fieldId: null,
-        })
-      }
-    }
-
-    const fieldText = padText(field.value, field.length)
-    const fieldColor = field.protected ? field.labelColor : 'green'
-
-    for (let index = 0; index < field.length; index += 1) {
-      setScreenCell(screen, field.row, field.col + index, {
-        char: fieldText[index] ?? BLANK,
-        color: fieldColor,
-        protected: field.protected,
-        intensified: field.intensified ?? false,
-        fieldId: field.id,
-      })
-    }
-  }
-
-  const statusText = ` ${statusMessage} `.padEnd(COLS - 2, BLANK)
-  for (let index = 0; index < statusText.length; index += 1) {
-    setScreenCell(screen, ROWS - 1, index + 1, {
-      char: statusText[index] ?? BLANK,
-      color: statusColor,
-      protected: true,
-      intensified: true,
-      fieldId: null,
-    })
-  }
-
-  const activeField = fields[activeFieldIndex]
-  const cursor =
-    activeField && !activeField.protected
-      ? {
-          row: activeField.row,
-          col: Math.min(activeField.col + cursorOffset, activeField.col + activeField.length - 1),
-        }
-      : null
-
-  return {
-    rows: ROWS,
-    cols: COLS,
-    cells: screen,
-    cursor,
-    connectionState: 'connected',
-    statusMessage,
-    statusColor,
-    title: bootstrap.title,
+  switch (event.key.toLowerCase()) {
+    case 'c':
+      return 'PA1'
+    case 'l':
+      return 'CLEAR'
+    case 's':
+      return 'SYSREQ'
+    default:
+      return null
   }
 }
 
 export function useTN3270Session(): {
   accessibleSummary: ComputedRef<string>
-  fields: Ref<TerminalFieldDefinition[]>
   handleKeydown: (event: KeyboardEvent) => Promise<void>
-  snapshot: ComputedRef<TN3270ScreenSnapshot>
+  snapshot: Ref<TN3270ScreenSnapshot>
 } {
-  const bootstrap = ref<TN3270SessionBootstrap | null>(null)
-  const fields = ref<TerminalFieldDefinition[]>([])
-  const activeFieldIndex = ref(0)
-  const cursorOffset = ref(0)
-  const connected = ref(false)
-  const statusMessage = ref('SYSTEM READY  INSERT OFF  KEYBOARD ENABLED')
-  const statusColor = ref<TN3270Color>('white')
-  const lastAidKey = ref('ENTER')
+  let screen: Tn3270TerminalScreen | null = null
+
+  const snapshot = ref<TN3270ScreenSnapshot>(
+    createInitialSnapshot('connecting', 'CONNECTING TO TERMINAL SESSION', 'yellow'),
+  )
+
+  function updateSnapshot(
+    connectionState: 'disconnected' | 'connecting' | 'connected',
+    statusMessage: string,
+    statusColor: TN3270Color,
+  ): void {
+    snapshot.value =
+      screen?.toSnapshot(connectionState, statusMessage, statusColor) ??
+      createInitialSnapshot(connectionState, statusMessage, statusColor)
+  }
 
   async function connect(): Promise<void> {
-    const sessionBootstrap = await transport.connect()
-    bootstrap.value = sessionBootstrap
-    fields.value = sessionBootstrap.fields.map((field) => ({ ...field }))
-    activeFieldIndex.value = Math.max(
-      fields.value.findIndex((field) => !field.protected),
-      0,
-    )
-    cursorOffset.value = 0
-    connected.value = true
+    screen = null
+    updateSnapshot('connecting', 'CONNECTING TO TERMINAL SESSION', 'yellow')
+
+    try {
+      const ready = await transport.connect({
+        onFrame(frame: Tn3270Frame) {
+          console.debug('[TN3270] processing inbound frame', {
+            dataType: frame.dataType,
+            payloadLength: frame.data.length,
+          })
+
+          if (!screen || frame.dataType !== 0x00) {
+            updateSnapshot('connected', `HOST RECORD TYPE ${frame.dataType} RECEIVED`, 'white')
+            return
+          }
+
+          screen.applyInboundRecord(frame.data)
+          console.debug('[TN3270] screen updated from host record', {
+            rows: screen.rows,
+            cols: screen.columns,
+          })
+          updateSnapshot('connected', 'HOST SCREEN UPDATED', 'green')
+        },
+        onError(message) {
+          console.error('[TN3270] session error', message)
+          updateSnapshot('disconnected', message, 'red')
+        },
+        onDisconnect() {
+          console.debug('[TN3270] session disconnected')
+          if (snapshot.value.connectionState !== 'disconnected') {
+            updateSnapshot('disconnected', 'TERMINAL SESSION DISCONNECTED', 'red')
+          }
+        },
+      })
+
+      screen = Tn3270TerminalScreen.fromTerminalType(ready.terminalType)
+      console.debug('[TN3270] screen model created', {
+        terminalType: ready.terminalType,
+        rows: screen.rows,
+        cols: screen.columns,
+      })
+      updateSnapshot('connected', `CONNECTED TO ${ready.host}:${ready.port}`, 'green')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to connect to terminal session.'
+      console.error('[TN3270] connect failed', message)
+      updateSnapshot('disconnected', message, 'red')
+    }
   }
 
   async function disconnect(): Promise<void> {
     await transport.disconnect()
-    connected.value = false
+    updateSnapshot('disconnected', 'TERMINAL SESSION CLOSED', 'red')
   }
 
-  function getActiveField(): TerminalFieldDefinition | null {
-    const field = fields.value[activeFieldIndex.value]
-    if (!field || field.protected) {
-      return null
-    }
-
-    return field
-  }
-
-  function moveToField(index: number, toEnd = false): void {
-    const field = fields.value[index]
-    if (!field || field.protected) {
+  async function submitAid(aidKey: Tn3270AidKey): Promise<void> {
+    if (!screen) {
       return
     }
 
-    activeFieldIndex.value = index
-    cursorOffset.value = toEnd ? Math.min(field.value.length, field.length - 1) : 0
-  }
+    await transport.sendFrame({
+      dataType: 0x00,
+      requestFlag: 0x00,
+      responseFlag: 0x00,
+      sequenceNumber: 0,
+      data: screen.buildAidRecord(aidKey),
+    })
 
-  function moveToAdjacentField(direction: 1 | -1): void {
-    const editableFields = fields.value
-      .map((field, index) => ({ field, index }))
-      .filter(({ field }) => !field.protected)
-
-    if (!editableFields.length) {
-      return
-    }
-
-    const currentPosition = editableFields.findIndex(
-      ({ index }) => index === activeFieldIndex.value,
-    )
-    const nextPosition =
-      (currentPosition + direction + editableFields.length) % editableFields.length
-    const nextField = editableFields[nextPosition]
-    if (nextField) {
-      moveToField(nextField.index, direction < 0)
-    }
-  }
-
-  function writeCharacter(character: string): void {
-    const field = getActiveField()
-    if (!field || cursorOffset.value >= field.length) {
-      return
-    }
-
-    const chars = padText(field.value, field.length).split('')
-    chars[cursorOffset.value] = character
-    field.value = chars.join('').trimEnd()
-    cursorOffset.value = Math.min(cursorOffset.value + 1, field.length - 1)
-    statusMessage.value = `FIELD UPDATED  LAST AID=${lastAidKey.value}`
-    statusColor.value = 'green'
-  }
-
-  function eraseCharacter(backward: boolean): void {
-    const field = getActiveField()
-    if (!field) {
-      return
-    }
-
-    const chars = padText(field.value, field.length).split('')
-    const deleteAt = backward
-      ? Math.max(cursorOffset.value - 1, 0)
-      : Math.min(cursorOffset.value, field.length - 1)
-
-    if (backward && cursorOffset.value === 0 && chars[0] === BLANK) {
-      return
-    }
-
-    for (let index = deleteAt; index < field.length - 1; index += 1) {
-      chars[index] = chars[index + 1] ?? BLANK
-    }
-
-    chars[field.length - 1] = BLANK
-    field.value = chars.join('').trimEnd()
-    if (backward) {
-      cursorOffset.value = deleteAt
-    }
-    statusMessage.value = 'FIELD UPDATED  DELETE PROCESSED'
-    statusColor.value = 'yellow'
-  }
-
-  async function submitAidKey(aidKey: string): Promise<void> {
-    const payload = Object.fromEntries(
-      fields.value.filter((field) => !field.protected).map((field) => [field.id, field.value]),
-    )
-    await transport.submitAidKey(aidKey, payload)
-    lastAidKey.value = aidKey
-    statusMessage.value = `AID ${aidKey} SENT  HOST UPDATE PENDING`
-    statusColor.value = aidKey === 'PF3' ? 'red' : 'white'
+    updateSnapshot('connected', `AID ${aidKey} SENT TO HOST`, 'white')
   }
 
   async function handleKeydown(event: KeyboardEvent): Promise<void> {
-    const field = getActiveField()
-    if (!field) {
+    if (!screen || snapshot.value.connectionState !== 'connected') {
       return
     }
 
     if (event.key === 'Tab') {
       event.preventDefault()
-      moveToAdjacentField(event.shiftKey ? -1 : 1)
+      if (screen.moveToAdjacentField(!event.shiftKey)) {
+        updateSnapshot('connected', 'FIELD CHANGED', 'white')
+      }
       return
     }
 
     if (event.key === 'Enter') {
       event.preventDefault()
-      moveToAdjacentField(1)
-      await submitAidKey('ENTER')
+      await submitAid('ENTER')
       return
     }
 
-    if (event.key === 'F3') {
+    const modifiedAid = mapModifiedKeyToAid(event)
+    if (modifiedAid) {
       event.preventDefault()
-      await submitAidKey('PF3')
+      await submitAid(modifiedAid)
       return
     }
 
-    if (event.key === 'F5') {
+    if (event.key === 'Pause') {
       event.preventDefault()
-      await submitAidKey('PF5')
+      const pauseAid = event.shiftKey ? 'PA2' : event.ctrlKey ? 'PA3' : 'PA1'
+      await submitAid(pauseAid)
+      return
+    }
+
+    const functionAid = mapFunctionKeyToAid(event)
+    if (functionAid) {
+      event.preventDefault()
+      await submitAid(functionAid)
       return
     }
 
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
-      cursorOffset.value = Math.max(cursorOffset.value - 1, 0)
+      if (screen.moveCursor(-1, 0)) {
+        updateSnapshot('connected', 'CURSOR MOVED', 'white')
+      }
       return
     }
 
     if (event.key === 'ArrowRight') {
       event.preventDefault()
-      cursorOffset.value = Math.min(cursorOffset.value + 1, field.length - 1)
+      if (screen.moveCursor(1, 0)) {
+        updateSnapshot('connected', 'CURSOR MOVED', 'white')
+      }
       return
     }
 
     if (event.key === 'ArrowUp') {
       event.preventDefault()
-      moveToAdjacentField(-1)
+      if (screen.moveCursor(0, -1)) {
+        updateSnapshot('connected', 'CURSOR MOVED', 'white')
+      }
       return
     }
 
     if (event.key === 'ArrowDown') {
       event.preventDefault()
-      moveToAdjacentField(1)
+      if (screen.moveCursor(0, 1)) {
+        updateSnapshot('connected', 'CURSOR MOVED', 'white')
+      }
       return
     }
 
     if (event.key === 'Home') {
       event.preventDefault()
-      cursorOffset.value = 0
+      if (screen.moveCursorToFieldStart()) {
+        updateSnapshot('connected', 'CURSOR MOVED TO FIELD START', 'white')
+      }
       return
     }
 
     if (event.key === 'End') {
       event.preventDefault()
-      cursorOffset.value = Math.min(field.value.length, field.length - 1)
+      if (screen.moveCursorToFieldEnd()) {
+        updateSnapshot('connected', 'CURSOR MOVED TO FIELD END', 'white')
+      }
       return
     }
 
     if (event.key === 'Backspace') {
       event.preventDefault()
-      eraseCharacter(true)
+      if (screen.backspace()) {
+        updateSnapshot('connected', 'BACKSPACE PROCESSED', 'green')
+      }
       return
     }
 
     if (event.key === 'Delete') {
       event.preventDefault()
-      eraseCharacter(false)
+      if (screen.delete()) {
+        updateSnapshot('connected', 'DELETE PROCESSED', 'green')
+      }
       return
     }
 
@@ -374,7 +259,9 @@ export function useTN3270Session(): {
 
     if (event.key.length === 1) {
       event.preventDefault()
-      writeCharacter(event.key.toUpperCase())
+      if (screen.tryWriteCharacter(event.key.toUpperCase())) {
+        updateSnapshot('connected', 'FIELD UPDATED', 'green')
+      }
     }
   }
 
@@ -386,35 +273,10 @@ export function useTN3270Session(): {
     void disconnect()
   })
 
-  const snapshot = computed<TN3270ScreenSnapshot>(() => {
-    if (!connected.value || !bootstrap.value) {
-      return {
-        rows: ROWS,
-        cols: COLS,
-        cells: createEmptyScreen(),
-        cursor: null,
-        connectionState: 'connecting',
-        statusMessage: 'CONNECTING TO TERMINAL SESSION',
-        statusColor: 'yellow',
-        title: 'TN 3270 TERMINAL',
-      }
-    }
-
-    return createConnectedSnapshot(
-      bootstrap.value,
-      fields.value,
-      activeFieldIndex.value,
-      cursorOffset.value,
-      statusMessage.value,
-      statusColor.value,
-    )
-  })
-
   const accessibleSummary = computed(() => summarizeSnapshot(snapshot.value))
 
   return {
     accessibleSummary,
-    fields,
     handleKeydown,
     snapshot,
   }

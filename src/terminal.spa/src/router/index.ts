@@ -15,9 +15,6 @@ const router = createRouter({
       path: '/terminal',
       name: 'terminal',
       component: TerminalView,
-      meta: {
-        requiresAuth: true,
-      },
     },
     {
       path: '/unauthorized',

@@ -1,4 +1,7 @@
+using Microsoft.Extensions.Options;
 using Terminal.Api.Logging;
+using Terminal.Api.Options;
+using Terminal.Api.WebSockets;
 using Terminal.Common.Extensions;
 
 public partial class Program
@@ -20,7 +23,10 @@ public partial class Program
 
         builder.Services.Configure<FileLoggerOptions>(
             builder.Configuration.GetSection(FileLoggerOptions.SectionName));
+        builder.Services.Configure<TerminalProxyOptions>(
+            builder.Configuration.GetSection(TerminalProxyOptions.SectionName));
         builder.Services.AddSingleton<ILoggerProvider, FileLoggerProvider>();
+        builder.Services.AddSingleton<TerminalWebSocketSessionHandler>();
 
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
@@ -33,7 +39,22 @@ public partial class Program
             app.MapOpenApi();
         }
 
+        var terminalProxyOptions = app.Services
+            .GetRequiredService<IOptions<TerminalProxyOptions>>()
+            .Value;
+
+        app.UseWebSockets(new WebSocketOptions
+        {
+            KeepAliveInterval = terminalProxyOptions.WebSocketKeepAliveInterval,
+        });
+
         app.UseHttpsRedirection();
+
+        app.Map(terminalProxyOptions.WebSocketPath, static async context =>
+        {
+            var handler = context.RequestServices.GetRequiredService<TerminalWebSocketSessionHandler>();
+            await handler.HandleAsync(context);
+        });
 
         app.Run();
     }

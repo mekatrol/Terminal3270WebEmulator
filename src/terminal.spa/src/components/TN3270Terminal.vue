@@ -1,3 +1,43 @@
+<template>
+  <main class="terminal-page">
+    <section
+      ref="terminalRef"
+      class="terminal-shell"
+      tabindex="0"
+      role="application"
+      aria-label="TN 3270 emulator"
+      :aria-describedby="'terminal-instructions terminal-status'"
+      @mousedown.prevent="focusTerminal"
+      @keydown="handleKeydown"
+    >
+      <h2 class="sr-only">{{ snapshot.title }}</h2>
+      <p id="terminal-instructions" class="sr-only">
+        Keyboard-driven 24 by 80 TN 3270 terminal. Use Tab to move across input fields, Enter to
+        submit, function keys F1 through F12 for program function keys, Shift plus F1 through F12
+        for PF13 through PF24, Ctrl+C for PA1, Ctrl+L for Clear, and Ctrl+S for SysReq.
+      </p>
+      <p id="terminal-status" class="sr-only" aria-live="polite">
+        {{ accessibleSummary }}
+      </p>
+
+      <div class="terminal-frame">
+        <div class="terminal-grid" data-testid="TN-3270-terminal" aria-hidden="true">
+          <div
+            v-for="(row, rowIndex) in flattenedRows"
+            :key="`row-${rowIndex}`"
+            class="terminal-row"
+            :style="{ gridTemplateColumns: `repeat(${snapshot.cols}, 1ch)` }"
+          >
+            <span v-for="cell in row" :key="cell.key" class="terminal-cell" :class="cell.classes">
+              {{ cell.char }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</template>
+
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
@@ -16,6 +56,13 @@ const colorClassMap: Record<TN3270Color, string> = {
   turquoise: 'cell-turquoise',
   yellow: 'cell-yellow',
   white: 'cell-white',
+  black: 'cell-black',
+  deepBlue: 'cell-deep-blue',
+  orange: 'cell-orange',
+  purple: 'cell-purple',
+  paleGreen: 'cell-pale-green',
+  paleTurquoise: 'cell-pale-turquoise',
+  grey: 'cell-grey',
 }
 
 const flattenedRows = computed(() =>
@@ -42,44 +89,6 @@ function focusTerminal(): void {
   terminalRef.value?.focus()
 }
 </script>
-
-<template>
-  <main class="terminal-page">
-    <section
-      ref="terminalRef"
-      class="terminal-shell"
-      tabindex="0"
-      role="application"
-      aria-label="TN 3270 emulator"
-      :aria-describedby="'terminal-instructions terminal-status'"
-      @mousedown.prevent="focusTerminal"
-      @keydown="handleKeydown"
-    >
-      <h2 class="sr-only">{{ snapshot.title }}</h2>
-      <p id="terminal-instructions" class="sr-only">
-        Keyboard-driven 24 by 80 TN 3270 terminal. Use Tab to move across input fields, Enter to
-        submit, and function keys F3 and F5 for program attention keys.
-      </p>
-      <p id="terminal-status" class="sr-only" aria-live="polite">
-        {{ accessibleSummary }}
-      </p>
-
-      <div class="terminal-frame">
-        <div class="terminal-grid" data-testid="TN-3270-terminal" aria-hidden="true">
-          <div
-            v-for="(row, rowIndex) in flattenedRows"
-            :key="`row-${rowIndex}`"
-            class="terminal-row"
-          >
-            <span v-for="cell in row" :key="cell.key" class="terminal-cell" :class="cell.classes">
-              {{ cell.char }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-</template>
 
 <style scoped>
 .terminal-page {
@@ -170,7 +179,6 @@ function focusTerminal(): void {
 
 .terminal-row {
   display: grid;
-  grid-template-columns: repeat(80, 1ch);
   line-height: 1.1;
 }
 
@@ -231,6 +239,34 @@ function focusTerminal(): void {
 
 .cell-white {
   color: #f4f7fb;
+}
+
+.cell-black {
+  color: #0c1014;
+}
+
+.cell-deep-blue {
+  color: #1f5dff;
+}
+
+.cell-orange {
+  color: #ffb454;
+}
+
+.cell-purple {
+  color: #c79cff;
+}
+
+.cell-pale-green {
+  color: #b9ffb4;
+}
+
+.cell-pale-turquoise {
+  color: #b5fff2;
+}
+
+.cell-grey {
+  color: #b6c0c8;
 }
 
 .sr-only {
