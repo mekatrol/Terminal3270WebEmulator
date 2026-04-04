@@ -3,6 +3,7 @@ using Terminal.Api.Logging;
 using Terminal.Api.Options;
 using Terminal.Api.WebSockets;
 using Terminal.Common.Extensions;
+using Terminal.Data.Extensions;
 
 public partial class Program
 {
@@ -31,6 +32,7 @@ public partial class Program
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
         builder.Services.AddTerminalServices(builder.Configuration);
+        builder.Services.AddTerminalData(builder.Configuration);
 
         var app = builder.Build();
 

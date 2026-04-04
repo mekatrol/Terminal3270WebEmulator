@@ -13,11 +13,14 @@
 
   <ItemGroup>
     <PackageReference Include="MSTest" Version="4.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.4" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.4" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Terminal.Common\Terminal.Common.csproj" />
+    <ProjectReference Include="..\Terminal.Data\Terminal.Data.csproj" />
     <ProjectReference Include="..\Terminal.MockServer\Terminal.MockServer.csproj" />
   </ItemGroup>
 

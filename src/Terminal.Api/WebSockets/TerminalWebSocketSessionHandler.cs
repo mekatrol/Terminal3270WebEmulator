@@ -1,12 +1,16 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Buffers.Binary;
 using System.Net.WebSockets;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Terminal.Api.Options;
 using Terminal.Common.Models;
 using Terminal.Common.Options;
 using Terminal.Common.Services;
+using Terminal.Data.Context;
+using Terminal.Data.Models;
 
 namespace Terminal.Api.WebSockets;
 
@@ -45,11 +49,16 @@ internal sealed class TerminalWebSocketSessionHandler
         var proxyOptions = _terminalProxyOptions.Value;
         var hostOptions = _tn3270EOptions.Value;
         var terminalService = scope.ServiceProvider.GetRequiredService<ITn3270EService>();
+        var terminalDataContext = scope.ServiceProvider.GetRequiredService<TerminalDataContext>();
 
         using var sessionCancellationSource =
             CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
         sessionCancellationSource.CancelAfter(proxyOptions.SessionLifetime);
         var closeDescription = "Terminal proxy session closed.";
+        var trackedSession = await CreateTrackedSessionAsync(
+            context,
+            terminalDataContext,
+            sessionCancellationSource.Token);
 
         try
         {
@@ -142,6 +151,10 @@ internal sealed class TerminalWebSocketSessionHandler
         finally
         {
             await terminalService.DisconnectAsync(CancellationToken.None);
+            await CompleteTrackedSessionAsync(
+                trackedSession,
+                terminalDataContext,
+                CancellationToken.None);
 
             await CloseWebSocketIfOpenAsync(
                 webSocket,
@@ -211,6 +224,115 @@ internal sealed class TerminalWebSocketSessionHandler
         {
             _logger.LogDebug(exception, "Failed to send terminal proxy control message because the socket is closing.");
         }
+    }
+
+    private async Task<TerminalSession?> CreateTrackedSessionAsync(
+        HttpContext context,
+        TerminalDataContext terminalDataContext,
+        CancellationToken cancellationToken)
+    {
+        if (ResolveTrackedUser(context.User) is not { } userIdentity)
+        {
+            _logger.LogDebug(
+                "Skipping terminal session persistence because the request does not carry an authenticated user identity.");
+            return null;
+        }
+
+        try
+        {
+            var user = await terminalDataContext.Users.SingleOrDefaultAsync(
+                existingUser => existingUser.UserId == userIdentity.UserId,
+                cancellationToken);
+
+            if (user is null)
+            {
+                user = new User
+                {
+                    UserId = userIdentity.UserId,
+                    UserName = userIdentity.UserName,
+                };
+
+                terminalDataContext.Users.Add(user);
+            }
+            else
+            {
+                user.UserName = userIdentity.UserName;
+            }
+
+            var session = new TerminalSession
+            {
+                TerminalSessionId = Guid.NewGuid(),
+                CreatedDateTimeUtc = DateTimeOffset.UtcNow,
+                IsActive = true,
+                UserId = user.UserId,
+            };
+
+            terminalDataContext.TerminalSessions.Add(session);
+            await terminalDataContext.SaveChangesAsync(cancellationToken);
+            return session;
+        }
+        catch (Exception exception)
+        {
+            // Session tracking is observability state. Logging and continuing keeps
+            // terminal access available even if the in-memory store is misconfigured.
+            _logger.LogError(exception, "Failed to persist the opening terminal session record.");
+            return null;
+        }
+    }
+
+    private async Task CompleteTrackedSessionAsync(
+        TerminalSession? trackedSession,
+        TerminalDataContext terminalDataContext,
+        CancellationToken cancellationToken)
+    {
+        if (trackedSession is null)
+        {
+            return;
+        }
+
+        try
+        {
+            trackedSession.IsActive = false;
+            trackedSession.ClosedDateTimeUtc = DateTimeOffset.UtcNow;
+            await terminalDataContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            // Cleanup failures must be logged, but they should not prevent the
+            // network session from closing because the client has already ended.
+            _logger.LogError(exception, "Failed to persist the terminal session close record.");
+        }
+    }
+
+    private static (string UserId, string UserName)? ResolveTrackedUser(ClaimsPrincipal principal)
+    {
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            return null;
+        }
+
+        var userId =
+            principal.FindFirstValue(ClaimTypes.NameIdentifier) ??
+            principal.FindFirstValue("oid") ??
+            principal.FindFirstValue("sub") ??
+            principal.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier") ??
+            principal.FindFirstValue("preferred_username") ??
+            principal.FindFirstValue(ClaimTypes.Email) ??
+            principal.Identity.Name;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return null;
+        }
+
+        var userName =
+            principal.FindFirstValue("preferred_username") ??
+            principal.FindFirstValue(ClaimTypes.Name) ??
+            principal.FindFirstValue(ClaimTypes.Email) ??
+            principal.Identity.Name ??
+            userId;
+
+        return (userId, userName);
     }
 
     private static async Task CloseWebSocketIfOpenAsync(
