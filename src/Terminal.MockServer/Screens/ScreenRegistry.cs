@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using System.Globalization;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;

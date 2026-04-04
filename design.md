@@ -17,7 +17,6 @@ The browser communicates with the server over HTTPS for standard web requests an
 Third-party library usage should be kept to an absolute minimum. The main browser-side libraries are:
 
 - Vue
-- An OAuth-compatible browser authentication library and the corresponding .NET authentication components
 - TypeScript typings required for development
 
 Vite is used for local development and production packaging.
@@ -51,11 +50,19 @@ If the user is not authenticated or does not hold the required claims, the user 
 
 If the user does hold the required claims, the user is directed to the mainframe login page to enter mainframe credentials.
 
+For local development, the repository includes a mock identity provider hosted by `Terminal.MockServer`. The SPA uses the OpenID Connect authorization code flow with PKCE against that provider, and `Terminal.Api` validates bearer access tokens issued by it. The provider emits standard claims such as `sub`, `iss`, `aud`, and `email`, together with Entra-style claims such as `oid`, `tid`, `preferred_username`, and `roles`.
+
 ### Authorization
 
 OAuth role claims are used to authorize access to the application. Mainframe permissions and roles then determine what the authenticated user is allowed to do within the mainframe session itself.
 
 OAuth establishes that the user is permitted to access the application in a specific role. The mainframe remains responsible for terminal-level permissions and behavior.
+
+The current logical role split is:
+
+- `Terminal.User` for browser access to the terminal session
+- `Terminal.Admin` for elevated terminal-related identity semantics when needed by downstream application behavior
+- `Server.Admin` for access to the administrative SPA route space and protected administrative HTTP endpoints
 
 ### Protocols
 
@@ -67,7 +74,7 @@ Both protocols use TLS 1.3.
 
 ## Architecture
 
-The system consists of a single Vue 3 SPA connected to a .NET server.
+The system consists of a single Vue 3 SPA connected to a .NET server, with a separate mock host used during development.
 
 The SPA is responsible for the browser user interface, authentication flow, and terminal session experience. Initial application requests use HTTPS. Interactive terminal session traffic uses WSS so the browser and server can maintain a real-time connection.
 
@@ -82,6 +89,48 @@ The .NET server is divided into the following layers:
 2. Services layer - the dependency-injected services layer that performs server functions. It is a .NET library that exposes C# interfaces for operations. Concrete implementation classes should be marked `internal` so they are not accessible outside the library. Extension methods such as `AddTerminalServices` should be used to register functionality with the host using standard .NET dependency injection patterns.
 3. Persistence layer - the Entity Framework Core data access layer, configured to use the InMemory provider for application data.
 
+For local development and automated validation, `Terminal.MockServer` complements `Terminal.Api` with two separate responsibilities:
+
+1. A mock TN3270 or TN3270E endpoint that returns deterministic screens and accepts known sign-in credentials.
+2. A mock OpenID Connect identity provider that supports the browser and API authentication flow without depending on an external tenant.
+
+### Mock identity provider design
+
+The mock identity provider is intentionally lightweight and configuration-driven rather than a full identity platform. Its design goals are:
+
+- keep local development self-contained
+- produce realistic token and claim shapes for the SPA and API
+- exercise authorization code plus PKCE behavior instead of bypassing login
+- allow user and role changes through configuration only
+
+The provider is hosted inside `Terminal.MockServer` so a single development process can supply both the mock terminal host and the identity system needed to reach it.
+
+The provider exposes these endpoint categories:
+
+- OpenID Connect discovery metadata
+- JWKS signing keys
+- authorization endpoint with a simple HTML login page
+- token endpoint for authorization code and refresh token exchange
+- userinfo endpoint
+- logout endpoint
+
+Token issuance is backed by an in-memory store of authorization codes, refresh tokens, and access-token metadata. Signing keys are generated at runtime, which is acceptable for local development because the SPA and API discover them dynamically through the metadata and JWKS endpoints.
+
+Mock users and clients are defined in configuration. A mock user includes identifiers, display attributes, password, and a set of roles. Those configured roles are emitted into the `roles` claim in access tokens and ID tokens, and are also returned from the userinfo endpoint.
+
+The provider uses an Entra-inspired path structure such as `/mock-entra/{tenant}/oauth2/v2.0/authorize` and `/mock-entra/{tenant}/oauth2/v2.0/token`, but the actual protocol behavior is intentionally standards-oriented so the implementation can model other OAuth-compatible identity providers as well.
+
+### Runtime composition
+
+In the current development architecture:
+
+1. The SPA redirects the browser to the mock identity provider for sign-in.
+2. The identity provider returns an authorization code to the SPA callback route.
+3. The SPA redeems the code for tokens and stores the resulting browser session state.
+4. The SPA sends the bearer access token to `Terminal.Api` over HTTPS and WSS.
+5. `Terminal.Api` validates the token against the configured authority and authorizes requests based on the `roles` claim.
+6. `Terminal.Api` then proxies TN3270 or TN3270E traffic to the TN3270 mock host when a terminal session is established.
+
 Unit tests are required for both server-side code and SPA code.
 
 ## Folder structure
@@ -93,6 +142,7 @@ Unit tests are required for both server-side code and SPA code.
 `src/Terminal.Common` contains service interfaces, concrete service implementations, and dependency injection helper extensions  
 `src/Terminal.Data` contains the Entity Framework Core persistence layer  
 `src/Terminal.MockServer` contains a mock terminal server used for development and testing  
+`src/Terminal.MockServer/Auth` contains the mock OpenID Connect provider implementation and configuration-bound identity model  
 `src/terminal.spa` contains the Vue SPA for the terminal website  
 `src/Terminal.Test.Unit` contains .NET unit tests
 
@@ -100,7 +150,7 @@ Unit tests are required for both server-side code and SPA code.
 `src/Terminal.Console` is an executable .NET console project used for TN3270 or TN3270E client connectivity and related testing or debugging scenarios.  
 `src/Terminal.Common` is a .NET library.    
 `src/Terminal.Data` is a .NET library.  
-`src/Terminal.MockServer` is an executable .NET project that provides a mock TN3270 or TN3270E server for development and testing.  
+`src/Terminal.MockServer` is an executable .NET project that provides a mock TN3270 or TN3270E server and a mock OpenID Connect identity provider for development and testing.  
 
 ## Technical requirements
 
@@ -148,9 +198,9 @@ Always run the following commands to ensure formatting, rule compliance, package
 
 `dotnet build src/Terminal.slnx /p:EnforceCodeStyleInBuild=true`
 
-`dotnet package list src/Terminal.slnx --vulnerable --format json`
+`dotnet package list --project src/Terminal.slnx --vulnerable --format json`
 
-`dotnet package list src/Terminal.slnx --deprecated --format json`
+`dotnet package list --project src/Terminal.slnx --deprecated --format json`
 
 ### TypeScript / Vue / SPA
 

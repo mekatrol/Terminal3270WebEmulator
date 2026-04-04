@@ -1,4 +1,5 @@
 import type { SessionControlMessage, SessionReadyMessage, Tn3270Frame } from '@/types/TN3270'
+import { appendAccessTokenToUrl } from '@/services/auth'
 
 export interface TerminalSessionTransport {
   connect(handlers: {
@@ -96,7 +97,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
   }): Promise<SessionReadyMessage> {
     await this.disconnect()
 
-    const webSocketUrl = resolveTerminalWebSocketUrl()
+    const webSocketUrl = await appendAccessTokenToUrl(resolveTerminalWebSocketUrl())
     console.log('[TN3270] connecting websocket', { url: webSocketUrl })
 
     const socket = new WebSocket(webSocketUrl)

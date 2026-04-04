@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using System.Text;
 using Terminal.Common.Models;
 using Terminal.MockServer.Screens;

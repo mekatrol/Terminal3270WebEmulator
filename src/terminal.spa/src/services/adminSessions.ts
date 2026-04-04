@@ -1,3 +1,5 @@
+import { authorizedFetch } from '@/services/auth'
+
 export type AdminSession = {
   terminalSessionId: string
   createdDateTimeUtc: string
@@ -49,7 +51,7 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function fetchAdminSessions(signal?: AbortSignal): Promise<AdminSession[]> {
-  const response = await fetch(resolveAdminSessionsBaseUrl(), {
+  const response = await authorizedFetch(resolveAdminSessionsBaseUrl(), {
     headers: {
       Accept: 'application/json',
     },
@@ -64,7 +66,7 @@ async function postSelection(
   actionPath: string,
   sessionIds: string[],
 ): Promise<AdminSessionActionResponse> {
-  const response = await fetch(`${resolveAdminSessionsBaseUrl()}${actionPath}`, {
+  const response = await authorizedFetch(`${resolveAdminSessionsBaseUrl()}${actionPath}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

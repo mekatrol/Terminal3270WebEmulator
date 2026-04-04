@@ -14,8 +14,8 @@ internal static class AdminSessionEndpoints
     /// Registers the admin session endpoints on the supplied route builder.
     /// </summary>
     /// <param name="endpoints">The endpoint route builder.</param>
-    /// <returns>The same route builder instance for chaining.</returns>
-    public static IEndpointRouteBuilder MapAdminSessionEndpoints(this IEndpointRouteBuilder endpoints)
+    /// <returns>The mapped route group for further configuration.</returns>
+    public static RouteGroupBuilder MapAdminSessionEndpoints(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
@@ -25,7 +25,7 @@ internal static class AdminSessionEndpoints
         group.MapPost("/terminate", TerminateSessionsAsync);
         group.MapPost("/clear", ClearSessionsAsync);
 
-        return endpoints;
+        return group;
     }
 
     private static async Task<Ok<AdminSessionListResponse>> GetSessionsAsync(

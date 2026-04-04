@@ -1,10 +1,7 @@
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Terminal.Common.Protocol;
 using Terminal.Common.Terminal;
+using Terminal.MockServer.Auth;
 using Terminal.MockServer.Logging;
 using Terminal.MockServer.Screens;
 using Terminal.MockServer.Services;
@@ -21,53 +18,86 @@ internal sealed class Program
             return;
         }
 
-        var host = Host.CreateDefaultBuilder(args)
-            .ConfigureLogging((context, logging) =>
-            {
-                logging.ClearProviders();
-                logging.AddConfiguration(context.Configuration.GetSection("Logging"));
+        var builder = WebApplication.CreateBuilder(args);
 
-                if (context.HostingEnvironment.IsDevelopment())
+        builder.Logging.ClearProviders();
+        builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+
+        if (builder.Environment.IsDevelopment())
+        {
+            builder.Logging.AddDebug();
+        }
+
+        var allowedSpaOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>();
+
+        builder.Services.Configure<FileLoggerOptions>(
+            builder.Configuration.GetSection(FileLoggerOptions.SectionName));
+        builder.Services.AddSingleton<ILoggerProvider, FileLoggerProvider>();
+        builder.Services
+            .AddOptions<MockServerOptions>()
+            .Bind(builder.Configuration.GetSection(MockServerOptions.SectionName))
+            .ValidateOnStart();
+        builder.Services
+            .AddOptions<MockIdentityOptions>()
+            .Bind(builder.Configuration.GetSection(MockIdentityOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Issuer), "MockIdentity:Issuer is required.")
+            .Validate(options => options.Clients.Count > 0, "At least one mock identity client must be configured.")
+            .Validate(options => options.Users.Count > 0, "At least one mock identity user must be configured.")
+            .ValidateOnStart();
+
+        builder.Services.AddSingleton<IValidateOptions<MockServerOptions>, MockServerOptionsValidator>();
+        builder.Services.AddSingleton<MockIdentityStore>();
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("SpaCors", policyBuilder =>
+            {
+                if (allowedSpaOrigins is { Length: > 0 })
                 {
-                    // Keep development diagnostics available in the debugger without relying on stdout.
-                    logging.AddDebug();
+                    policyBuilder
+                        .WithOrigins(allowedSpaOrigins)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                    return;
                 }
 
-                logging.Services.Configure<FileLoggerOptions>(
-                    context.Configuration.GetSection(FileLoggerOptions.SectionName));
-                logging.Services.AddSingleton<ILoggerProvider, FileLoggerProvider>();
-            })
-            .ConfigureServices((context, services) =>
+                policyBuilder
+                    .WithOrigins(
+                        "http://localhost:5173",
+                        "https://localhost:5173",
+                        "http://127.0.0.1:5173",
+                        "https://127.0.0.1:5173")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
+        builder.Services.AddSingleton(static serviceProvider =>
+        {
+            var options = serviceProvider
+                .GetRequiredService<IOptions<MockServerOptions>>()
+                .Value;
+            var logger = serviceProvider.GetRequiredService<ILogger<ScreenRegistry>>();
+            var screensDirectory = MockServerPaths.ResolveScreensDirectory(options.ScreensDirectory);
+
+            var registry = ScreenRegistry.LoadFromDirectory(screensDirectory, logger);
+
+            if (!registry.TryGet(options.InitialScreen, out _))
             {
-                services
-                    .AddOptions<MockServerOptions>()
-                    .Bind(context.Configuration.GetSection(MockServerOptions.SectionName))
-                    .ValidateOnStart();
+                throw new InvalidOperationException(
+                    $"Initial screen '{options.InitialScreen}' was not found in '{screensDirectory}'.");
+            }
 
-                services.AddSingleton<IValidateOptions<MockServerOptions>, MockServerOptionsValidator>();
-                services.AddSingleton(static serviceProvider =>
-                {
-                    var options = serviceProvider
-                        .GetRequiredService<IOptions<MockServerOptions>>()
-                        .Value;
-                    var logger = serviceProvider.GetRequiredService<ILogger<ScreenRegistry>>();
-                    var screensDirectory = MockServerPaths.ResolveScreensDirectory(options.ScreensDirectory);
+            return registry;
+        });
+        builder.Services.AddHostedService<MockTn3270Server>();
 
-                    var registry = ScreenRegistry.LoadFromDirectory(screensDirectory, logger);
+        var app = builder.Build();
 
-                    if (!registry.TryGet(options.InitialScreen, out _))
-                    {
-                        throw new InvalidOperationException(
-                            $"Initial screen '{options.InitialScreen}' was not found in '{screensDirectory}'.");
-                    }
+        app.UseCors("SpaCors");
+        app.MapMockIdentityEndpoints();
 
-                    return registry;
-                });
-                services.AddHostedService<MockTn3270Server>();
-            })
-            .Build();
-
-        await host.RunAsync();
+        await app.RunAsync();
     }
 
     private static bool TryGetDumpScreenRequest(string[] args, out string? screenId)

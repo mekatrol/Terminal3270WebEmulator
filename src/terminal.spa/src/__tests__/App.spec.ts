@@ -62,6 +62,10 @@ vi.mock('@/composables/useTN3270Session', () => ({
 }))
 
 describe('App', () => {
+  function getSessionLauncherButton(wrapper: ReturnType<typeof mount>) {
+    return wrapper.get('button.session-launcher-button')
+  }
+
   beforeEach(() => {
     showSessionLauncher.value = true
     sessionLauncherMessage.value = 'Start a new terminal session.'
@@ -127,7 +131,7 @@ describe('App', () => {
 
     expect(wrapper.text()).toContain('Start a new terminal session')
     expect(wrapper.text()).toContain('The terminal session ended. Start a new session.')
-    await wrapper.get('button').trigger('click')
+    await getSessionLauncherButton(wrapper).trigger('click')
     expect(startSession).toHaveBeenCalledOnce()
   })
 
@@ -160,7 +164,7 @@ describe('App', () => {
 
     await flushPromises()
 
-    expect(document.activeElement).toBe(wrapper.get('button').element)
+    expect(document.activeElement).toBe(getSessionLauncherButton(wrapper).element)
   })
 
   it('moves focus to the terminal surface when the session launcher is dismissed', async () => {
