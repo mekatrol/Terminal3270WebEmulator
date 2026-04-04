@@ -142,18 +142,23 @@ Comments should describe not only what the code is doing, but also why the code 
 
 ### C#
 
-Always run the following commands to ensure formatting and rule compliance:
+Always run the following commands to ensure formatting, rule compliance, package vulnerability detection, and package deprecation detection:
 
 `dotnet format src/Terminal.slnx`
 
 `dotnet build src/Terminal.slnx /p:EnforceCodeStyleInBuild=true`
 
+`dotnet package list src/Terminal.slnx --vulnerable --format json`
+
+`dotnet package list src/Terminal.slnx --deprecated --format json`
+
 ### TypeScript / Vue / SPA
 
-Always run the following commands to ensure SPA compliance:
+Always run the following commands to ensure SPA formatting, compliance, and package vulnerability detection:
 
 ```bash
 npm run format
 npm run lint
 npm run build
+npm run audit
 ```

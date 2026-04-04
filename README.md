@@ -98,6 +98,31 @@ cd src/terminal.spa
 npm run lint
 ```
 
+## Dependency Health
+
+### .NET
+
+Check the solution for known vulnerable packages:
+
+```bash
+dotnet package list src/Terminal.slnx --vulnerable --format json
+```
+
+Check the solution for deprecated packages:
+
+```bash
+dotnet package list src/Terminal.slnx --deprecated --format json
+```
+
+### Terminal SPA
+
+Run the npm vulnerability audit from the SPA directory:
+
+```bash
+cd src/terminal.spa
+npm run audit
+```
+
 ## Test
 
 ### .NET Unit Tests
@@ -117,18 +142,21 @@ npm run test:unit
 
 ## Recommended Validation Workflow
 
-The design document asks for formatting, compliance, and test checks after edits. A practical workflow is:
+The design document asks for formatting, compliance, dependency health, and test checks after edits. A practical workflow is:
 
 1. Format .NET and SPA code.
 2. Build the .NET solution with code style enforcement enabled.
-3. Run lint, build, and unit tests for the terminal SPA.
-4. Run the .NET unit tests.
+3. Check .NET packages for vulnerabilities and deprecations.
+4. Run lint, build, audit, and unit tests for the terminal SPA.
+5. Run the .NET unit tests.
 
 Example command sequence:
 
 ```bash
 dotnet format src/Terminal.slnx
 dotnet build src/Terminal.slnx /p:EnforceCodeStyleInBuild=true
+dotnet package list src/Terminal.slnx --vulnerable --format json
+dotnet package list src/Terminal.slnx --deprecated --format json
 dotnet test src/Terminal.Test.Unit/Terminal.Test.Unit.csproj
 ```
 
@@ -137,6 +165,7 @@ cd src/terminal.spa
 npm run format
 npm run lint
 npm run build
+npm run audit
 npm run test:unit
 ```
 
