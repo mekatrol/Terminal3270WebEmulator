@@ -10,7 +10,9 @@ const sessionLauncherMessage = ref('Start a new terminal session.')
 const startSession = vi.fn(async () => {})
 
 vi.mock('@/composables/useTN3270Session', () => ({
-  useTN3270Session: () => ({
+  useTN3270Session: (): ReturnType<
+    typeof import('@/composables/useTN3270Session').useTN3270Session
+  > => ({
     accessibleSummary: computed(() => 'TERMINAL 3270 EMULATOR. CONNECTED. connected.'),
     handleKeydown: vi.fn(async () => {}),
     sessionLauncherMessage: computed(() => sessionLauncherMessage.value),
@@ -115,5 +117,55 @@ describe('App', () => {
     expect(wrapper.text()).toContain('The terminal session ended. Start a new session.')
     await wrapper.get('button').trigger('click')
     expect(startSession).toHaveBeenCalledOnce()
+  })
+
+  it('submits the start-session form when the launcher form is submitted', async () => {
+    router.push('/terminal')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('form').trigger('submit')
+
+    expect(startSession).toHaveBeenCalledOnce()
+  })
+
+  it('moves focus to the start-session button when the launcher is shown', async () => {
+    router.push('/terminal')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(document.activeElement).toBe(wrapper.get('button').element)
+  })
+
+  it('moves focus to the terminal surface when the session launcher is dismissed', async () => {
+    router.push('/terminal')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+    showSessionLauncher.value = false
+    await flushPromises()
+
+    expect(document.activeElement).toBe(wrapper.get('[role="application"]').element)
   })
 })

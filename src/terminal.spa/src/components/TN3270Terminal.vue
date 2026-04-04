@@ -26,12 +26,19 @@
           class="session-launcher"
           aria-labelledby="session-launcher-title"
         >
-          <p class="session-launcher-eyebrow">HTTP SESSION READY</p>
-          <h3 id="session-launcher-title">Start a new terminal session</h3>
-          <p class="session-launcher-copy">{{ sessionLauncherMessage }}</p>
-          <button class="session-launcher-button" type="button" @click="startSession">
-            Start session
-          </button>
+          <form class="session-launcher-form" @submit.prevent="handleStartSessionSubmit">
+            <p class="session-launcher-eyebrow">HTTP SESSION READY</p>
+            <h3 id="session-launcher-title">Start a new terminal session</h3>
+            <p class="session-launcher-copy">{{ sessionLauncherMessage }}</p>
+            <button
+              ref="sessionLauncherButtonRef"
+              class="session-launcher-button"
+              type="submit"
+              @click="handleStartSessionClick"
+            >
+              Start session
+            </button>
+          </form>
         </section>
         <div v-else class="terminal-grid" data-testid="TN-3270-terminal" aria-hidden="true">
           <div
@@ -40,7 +47,13 @@
             class="terminal-row"
             :style="{ gridTemplateColumns: `repeat(${snapshot.cols}, 1ch)` }"
           >
-            <span v-for="cell in row" :key="cell.key" class="terminal-cell" :class="cell.classes">
+            <span
+              v-for="cell in row"
+              :key="cell.key"
+              class="terminal-cell"
+              :class="cell.classes"
+              :style="cell.style"
+            >
               {{ cell.char }}
             </span>
           </div>
@@ -51,31 +64,56 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import { useTN3270Session } from '@/composables/useTN3270Session'
 import type { TN3270Color, TerminalCell } from '@/types/TN3270'
 
 const terminalRef = ref<HTMLElement | null>(null)
-const { accessibleSummary, handleKeydown, sessionLauncherMessage, showSessionLauncher, snapshot, startSession } =
-  useTN3270Session()
+const sessionLauncherButtonRef = ref<HTMLButtonElement | null>(null)
+const {
+  accessibleSummary,
+  handleKeydown,
+  sessionLauncherMessage,
+  showSessionLauncher,
+  snapshot,
+  startSession,
+} = useTN3270Session()
 
 const colorClassMap: Record<TN3270Color, string> = {
-  neutral: 'cell-neutral',
-  blue: 'cell-blue',
-  red: 'cell-red',
-  pink: 'cell-pink',
-  green: 'cell-green',
-  turquoise: 'cell-turquoise',
-  yellow: 'cell-yellow',
-  white: 'cell-white',
-  black: 'cell-black',
-  deepBlue: 'cell-deep-blue',
-  orange: 'cell-orange',
-  purple: 'cell-purple',
-  paleGreen: 'cell-pale-green',
-  paleTurquoise: 'cell-pale-turquoise',
-  grey: 'cell-grey',
+  neutral: 'var(--tn3270-fg-neutral)',
+  blue: 'var(--tn3270-fg-blue)',
+  red: 'var(--tn3270-fg-red)',
+  pink: 'var(--tn3270-fg-pink)',
+  green: 'var(--tn3270-fg-green)',
+  turquoise: 'var(--tn3270-fg-turquoise)',
+  yellow: 'var(--tn3270-fg-yellow)',
+  white: 'var(--tn3270-fg-white)',
+  black: 'var(--tn3270-fg-black)',
+  deepBlue: 'var(--tn3270-fg-deep-blue)',
+  orange: 'var(--tn3270-fg-orange)',
+  purple: 'var(--tn3270-fg-purple)',
+  paleGreen: 'var(--tn3270-fg-pale-green)',
+  paleTurquoise: 'var(--tn3270-fg-pale-turquoise)',
+  grey: 'var(--tn3270-fg-grey)',
+}
+
+const backgroundColorMap: Record<TN3270Color, string> = {
+  neutral: 'transparent',
+  blue: 'var(--tn3270-bg-blue)',
+  red: 'var(--tn3270-bg-red)',
+  pink: 'var(--tn3270-bg-pink)',
+  green: 'var(--tn3270-bg-green)',
+  turquoise: 'var(--tn3270-bg-turquoise)',
+  yellow: 'var(--tn3270-bg-yellow)',
+  white: 'var(--tn3270-bg-white)',
+  black: 'var(--tn3270-bg-black)',
+  deepBlue: 'var(--tn3270-bg-deep-blue)',
+  orange: 'var(--tn3270-bg-orange)',
+  purple: 'var(--tn3270-bg-purple)',
+  paleGreen: 'var(--tn3270-bg-pale-green)',
+  paleTurquoise: 'var(--tn3270-bg-pale-turquoise)',
+  grey: 'var(--tn3270-bg-grey)',
 }
 
 const flattenedRows = computed(() =>
@@ -88,15 +126,46 @@ const flattenedRows = computed(() =>
         ...cell,
         key: `${rowIndex}-${colIndex}`,
         classes: [
-          colorClassMap[cell.color],
-          cell.protected ? 'cell-protected' : 'cell-input',
           cell.intensified ? 'cell-intensified' : '',
-          isCursor ? 'cell-cursor' : '',
+          isCursor ? 'cell-cursor' : 'cell-host-rendered',
         ].filter(Boolean),
+        style: resolveCellStyle(cell, isCursor),
       }
     }),
   ),
 )
+
+function resolveCellStyle(
+  cell: TerminalCell,
+  isCursor: boolean,
+): { backgroundColor: string; color: string } {
+  if (isCursor) {
+    return {
+      backgroundColor: 'var(--tn3270-cursor-bg)',
+      color: 'var(--tn3270-cursor-fg)',
+    }
+  }
+
+  return {
+    color: colorClassMap[cell.color],
+    backgroundColor:
+      cell.backgroundColor === 'neutral'
+        ? cell.protected
+          ? 'transparent'
+          : 'var(--tn3270-bg-input-neutral)'
+        : shouldRenderHostBackground(cell)
+          ? backgroundColorMap[cell.backgroundColor]
+          : 'transparent',
+  }
+}
+
+function shouldRenderHostBackground(cell: TerminalCell): boolean {
+  if (!cell.protected) {
+    return true
+  }
+
+  return cell.char.trim().length > 0
+}
 
 function focusTerminal(): void {
   if (showSessionLauncher.value) {
@@ -105,6 +174,51 @@ function focusTerminal(): void {
 
   terminalRef.value?.focus()
 }
+
+async function focusSessionLauncherButton(): Promise<void> {
+  if (!showSessionLauncher.value) {
+    return
+  }
+
+  await nextTick()
+  sessionLauncherButtonRef.value?.focus()
+}
+
+async function focusActiveSurface(): Promise<void> {
+  await nextTick()
+
+  if (showSessionLauncher.value) {
+    sessionLauncherButtonRef.value?.focus()
+    return
+  }
+
+  terminalRef.value?.focus()
+}
+
+async function handleStartSessionSubmit(): Promise<void> {
+  await startSession()
+}
+
+function handleStartSessionClick(event: MouseEvent): void {
+  // Native browser form submission already handles Enter on the launcher. The explicit click
+  // path keeps pointer activation deterministic in component tests and in any environment where
+  // synthetic clicks do not automatically dispatch a submit event.
+  event.preventDefault()
+  void startSession()
+}
+
+watch(showSessionLauncher, (isVisible) => {
+  if (isVisible) {
+    void focusSessionLauncherButton()
+    return
+  }
+
+  void focusActiveSurface()
+})
+
+onMounted(() => {
+  void focusActiveSurface()
+})
 </script>
 
 <style scoped>
@@ -113,6 +227,38 @@ function focusTerminal(): void {
 }
 
 .terminal-shell {
+  --tn3270-fg-neutral: #8ce0b4;
+  --tn3270-fg-blue: #73a8ff;
+  --tn3270-fg-red: #ff7a6b;
+  --tn3270-fg-pink: #ff9ad0;
+  --tn3270-fg-green: #90f7a6;
+  --tn3270-fg-turquoise: #6bf5eb;
+  --tn3270-fg-yellow: #ffeb75;
+  --tn3270-fg-white: #f4f7fb;
+  --tn3270-fg-black: #0c1014;
+  --tn3270-fg-deep-blue: #1f5dff;
+  --tn3270-fg-orange: #ffb454;
+  --tn3270-fg-purple: #c79cff;
+  --tn3270-fg-pale-green: #b9ffb4;
+  --tn3270-fg-pale-turquoise: #b5fff2;
+  --tn3270-fg-grey: #b6c0c8;
+  --tn3270-bg-input-neutral: rgb(140 224 180 / 0.06);
+  --tn3270-bg-blue: #1b3156;
+  --tn3270-bg-red: #5f1d1b;
+  --tn3270-bg-pink: #5d2947;
+  --tn3270-bg-green: #1f4a2a;
+  --tn3270-bg-turquoise: #154c49;
+  --tn3270-bg-yellow: #ffeb75;
+  --tn3270-bg-white: #e7edf4;
+  --tn3270-bg-black: #0c1014;
+  --tn3270-bg-deep-blue: #16357c;
+  --tn3270-bg-orange: #664114;
+  --tn3270-bg-purple: #493263;
+  --tn3270-bg-pale-green: #c4f3bf;
+  --tn3270-bg-pale-turquoise: #b8efe8;
+  --tn3270-bg-grey: #56616d;
+  --tn3270-cursor-bg: #8ce0b4;
+  --tn3270-cursor-fg: #071214;
   display: grid;
   min-height: 100vh;
   width: 100%;
@@ -195,10 +341,6 @@ function focusTerminal(): void {
 }
 
 .session-launcher {
-  display: grid;
-  align-content: center;
-  justify-items: start;
-  gap: 1rem;
   min-height: 100%;
   padding: min(5vw, 3rem);
   border: 1px solid rgb(116 188 167 / 30%);
@@ -207,8 +349,15 @@ function focusTerminal(): void {
     0 1.4rem 4rem rgb(0 0 0 / 45%);
   background:
     linear-gradient(180deg, rgb(0 0 0 / 18%), rgb(0 0 0 / 42%)),
-    radial-gradient(circle at top right, rgb(107 245 235 / 10%), transparent 32%),
-    #081315;
+    radial-gradient(circle at top right, rgb(107 245 235 / 10%), transparent 32%), #081315;
+}
+
+.session-launcher-form {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 1rem;
+  min-height: 100%;
 }
 
 .session-launcher-eyebrow {
@@ -265,81 +414,15 @@ function focusTerminal(): void {
   text-transform: uppercase;
 }
 
-.cell-input {
-  background: rgb(140 224 180 / 0.06);
-}
-
-.cell-protected {
-  background: transparent;
-}
-
 .cell-intensified {
   font-weight: 700;
 }
 
+.cell-host-rendered,
 .cell-cursor {
-  background: #8ce0b4;
-  color: #071214;
-}
-
-.cell-neutral {
-  color: #8ce0b4;
-}
-
-.cell-blue {
-  color: #73a8ff;
-}
-
-.cell-red {
-  color: #ff7a6b;
-}
-
-.cell-pink {
-  color: #ff9ad0;
-}
-
-.cell-green {
-  color: #90f7a6;
-}
-
-.cell-turquoise {
-  color: #6bf5eb;
-}
-
-.cell-yellow {
-  color: #ffeb75;
-}
-
-.cell-white {
-  color: #f4f7fb;
-}
-
-.cell-black {
-  color: #0c1014;
-}
-
-.cell-deep-blue {
-  color: #1f5dff;
-}
-
-.cell-orange {
-  color: #ffb454;
-}
-
-.cell-purple {
-  color: #c79cff;
-}
-
-.cell-pale-green {
-  color: #b9ffb4;
-}
-
-.cell-pale-turquoise {
-  color: #b5fff2;
-}
-
-.cell-grey {
-  color: #b6c0c8;
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
 }
 
 .sr-only {

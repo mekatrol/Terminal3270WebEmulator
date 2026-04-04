@@ -24,6 +24,20 @@ internal sealed class MockServerOptions
     public string DeviceName { get; set; } = "MOCK0001";
 
     /// <summary>
+    /// User ID that the mock server accepts on the sign-in screen.
+    /// The mock server exists to exercise the SPA login path before a real host integration is wired up,
+    /// so a fixed configured value keeps the test path deterministic and easy to reset between sessions.
+    /// </summary>
+    public string SignInUserId { get; set; } = "DEMOUSER";
+
+    /// <summary>
+    /// Password that the mock server accepts on the sign-in screen.
+    /// This is intentionally configuration-driven rather than hard-coded in the session handler so local
+    /// test environments can choose their own known value without recompiling the mock server.
+    /// </summary>
+    public string SignInPassword { get; set; } = "PASSWORD";
+
+    /// <summary>
     /// When true, the server skips TN3270E negotiation and establishes a classic TN3270 session.
     /// This is useful when validating basic interoperability with terminal emulators before
     /// introducing TN3270E framing.

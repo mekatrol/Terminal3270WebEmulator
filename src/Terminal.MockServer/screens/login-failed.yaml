@@ -1,0 +1,82 @@
+# Login retry screen shown after invalid credentials.
+# The structure intentionally mirrors login.yaml so the client stays in the same workflow,
+# but it adds a high-visibility host-style error message to confirm why Enter did not advance.
+id: login-failed
+description: System Login Failed
+rows: 24
+cols: 80
+cursor:
+  row: 10
+  col: 26
+
+fields:
+  - row: 4
+    col: 29
+    type: label
+    text: "MOCK TN3270E SERVER"
+    intensified: true
+    foreground: white
+    background: deep-blue
+
+  - row: 5
+    col: 34
+    type: label
+    text: "System Login"
+    foreground: yellow
+
+  - row: 7
+    col: 2
+    type: label
+    text: "────────────────────────────────────────────────────────────────────────────"
+    foreground: turquoise
+
+  - row: 9
+    col: 14
+    type: label
+    text: "Sign in failed. Please try again."
+    intensified: true
+    foreground: red
+
+  - row: 10
+    col: 14
+    type: label
+    text: "User ID  ==>"
+    foreground: green
+
+  - row: 10
+    col: 26
+    type: input
+    id: username
+    length: 20
+    foreground: white
+    background: red
+
+  - row: 12
+    col: 14
+    type: label
+    text: "Password ==>"
+    foreground: pink
+
+  - row: 12
+    col: 27
+    type: input-hidden
+    id: password
+    length: 20
+    background: blue
+
+  - row: 17
+    col: 2
+    type: label
+    text: "────────────────────────────────────────────────────────────────────────────"
+    foreground: turquoise
+
+  - row: 23
+    col: 2
+    type: label
+    text: "Enter=Sign On    PF3=Exit"
+    foreground: orange
+
+navigation:
+  Enter: main-menu
+  PF3: exit
+  Clear: login

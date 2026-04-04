@@ -46,6 +46,16 @@ internal sealed class MockServerOptionsValidator : IValidateOptions<MockServerOp
             failures.Add("MockServer:DeviceName is required.");
         }
 
+        if (string.IsNullOrWhiteSpace(options.SignInUserId))
+        {
+            failures.Add("MockServer:SignInUserId is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(options.SignInPassword))
+        {
+            failures.Add("MockServer:SignInPassword is required.");
+        }
+
         return failures.Count > 0
             ? ValidateOptionsResult.Fail(failures)
             : ValidateOptionsResult.Success;

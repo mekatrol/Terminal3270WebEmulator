@@ -97,7 +97,7 @@ internal sealed partial class MockSessionHandler(
                 LogInputRecord(logger, inputDescription);
             }
 
-            var targetId = ResolveNavigationTarget(current, aidName, data);
+            var targetId = ResolveNavigationTarget(current, aidName, data, options);
 
             if (targetId is null)
             {
@@ -685,8 +685,28 @@ internal sealed partial class MockSessionHandler(
         return Encoding.GetEncoding(37);
     }
 
-    private static string? ResolveNavigationTarget(ScreenDefinition current, string aidName, ReadOnlySpan<byte> data)
+    /// <summary>
+    /// Resolves the next screen for the current AID and input record.
+    /// The login screens are treated specially because a traditional 3270 sign-on flow does not advance
+    /// solely on Enter; it advances only after the host validates the submitted credentials. The mock server
+    /// mirrors that host-side decision point so the SPA can be tested against both success and failure paths.
+    /// </summary>
+    internal static string? ResolveNavigationTarget(
+        ScreenDefinition current,
+        string aidName,
+        ReadOnlySpan<byte> data,
+        MockServerOptions options)
     {
+        if (IsLoginScreen(current.Id)
+            && string.Equals(aidName, "Enter", StringComparison.OrdinalIgnoreCase))
+        {
+            var fieldValues = ParseFieldValues(current, data);
+            var signInSucceeded = CredentialsMatch(fieldValues, options);
+            return signInSucceeded
+                ? current.Navigation.GetValueOrDefault(aidName)
+                : "login-failed";
+        }
+
         if (string.Equals(current.Id, "main-menu", StringComparison.OrdinalIgnoreCase)
             && string.Equals(aidName, "Enter", StringComparison.OrdinalIgnoreCase))
         {
@@ -706,6 +726,43 @@ internal sealed partial class MockSessionHandler(
         return current.Navigation.TryGetValue(aidName, out var targetId)
             ? targetId
             : null;
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the screen is part of the sign-in loop.
+    /// Keeping the failure variant in the same logical bucket lets the mock server re-prompt after a bad
+    /// attempt without duplicating the credential-handling rules in multiple branches.
+    /// </summary>
+    internal static bool IsLoginScreen(string screenId) =>
+        string.Equals(screenId, "login", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(screenId, "login-failed", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Compares submitted credentials to the configured server values.
+    /// Both fields must be present and non-blank because the requested UX is to reject incomplete sign-in
+    /// attempts in the same way as incorrect credentials, then redisplay the sign-in screen with an error.
+    /// </summary>
+    internal static bool CredentialsMatch(
+        IReadOnlyDictionary<string, string> fieldValues,
+        MockServerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(fieldValues);
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (!fieldValues.TryGetValue("username", out var submittedUserId)
+            || string.IsNullOrWhiteSpace(submittedUserId))
+        {
+            return false;
+        }
+
+        if (!fieldValues.TryGetValue("password", out var submittedPassword)
+            || string.IsNullOrWhiteSpace(submittedPassword))
+        {
+            return false;
+        }
+
+        return string.Equals(submittedUserId.TrimEnd(), options.SignInUserId, StringComparison.Ordinal)
+            && string.Equals(submittedPassword.TrimEnd(), options.SignInPassword, StringComparison.Ordinal);
     }
 
     private static Dictionary<string, string> ParseFieldValues(ScreenDefinition screen, ReadOnlySpan<byte> data)
