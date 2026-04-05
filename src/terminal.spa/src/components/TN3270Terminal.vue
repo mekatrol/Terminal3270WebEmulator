@@ -3,7 +3,7 @@
     <section
       ref="terminalRef"
       class="terminal-shell"
-      :tabindex="showSessionLauncher ? -1 : 0"
+      :tabindex="showSessionLauncher || showSessionNotice ? -1 : 0"
       role="application"
       aria-label="TN 3270 emulator"
       :aria-describedby="'terminal-instructions terminal-status'"
@@ -37,7 +37,13 @@
               {{ sessionNoticeMessage }}
             </p>
             <div class="session-notice-actions">
-              <button class="session-notice-button" type="button" @click="dismissSessionNotice">
+              <button
+                ref="sessionNoticeButtonRef"
+                class="session-notice-button"
+                type="button"
+                @click="dismissSessionNotice"
+                @keydown.enter.prevent="dismissSessionNotice"
+              >
                 Close
               </button>
             </div>
@@ -46,6 +52,8 @@
         <section
           v-if="showSessionLauncher"
           class="session-launcher"
+          :inert="showSessionNotice"
+          :aria-hidden="showSessionNotice ? 'true' : undefined"
           aria-labelledby="session-launcher-title"
         >
           <form
@@ -63,6 +71,7 @@
               ref="sessionLauncherButtonRef"
               class="session-launcher-button"
               type="submit"
+              :tabindex="showSessionNotice ? -1 : undefined"
               @click="handleStartSessionClick"
             >
               Start session
@@ -101,6 +110,7 @@ import '@/styles/tn3270-terminal.css'
 
 const terminalRef = ref<HTMLElement | null>(null)
 const sessionLauncherButtonRef = ref<HTMLButtonElement | null>(null)
+const sessionNoticeButtonRef = ref<HTMLButtonElement | null>(null)
 const {
   accessibleSummary,
   canStartSession,
@@ -204,11 +214,20 @@ function shouldRenderHostBackground(cell: TerminalCell): boolean {
 }
 
 function focusTerminal(): void {
-  if (showSessionLauncher.value) {
+  if (showSessionLauncher.value || showSessionNotice.value) {
     return
   }
 
   terminalRef.value?.focus()
+}
+
+async function focusSessionNoticeButton(): Promise<void> {
+  if (!showSessionNotice.value) {
+    return
+  }
+
+  await nextTick()
+  sessionNoticeButtonRef.value?.focus()
 }
 
 async function focusSessionLauncherButton(): Promise<void> {
@@ -222,6 +241,11 @@ async function focusSessionLauncherButton(): Promise<void> {
 
 async function focusActiveSurface(): Promise<void> {
   await nextTick()
+
+  if (showSessionNotice.value) {
+    sessionNoticeButtonRef.value?.focus()
+    return
+  }
 
   if (showSessionLauncher.value) {
     sessionLauncherButtonRef.value?.focus()
@@ -251,7 +275,20 @@ function handleStartSessionClick(event: MouseEvent): void {
   void startSession()
 }
 
+watch(showSessionNotice, (isVisible) => {
+  if (isVisible) {
+    void focusSessionNoticeButton()
+    return
+  }
+
+  void focusActiveSurface()
+})
+
 watch(showSessionLauncher, (isVisible) => {
+  if (showSessionNotice.value) {
+    return
+  }
+
   if (isVisible) {
     void focusSessionLauncherButton()
     return

@@ -186,6 +186,33 @@ describe('App', () => {
     expect(dismissSessionNotice).toHaveBeenCalledOnce()
   })
 
+  it('moves focus to the notice button and handles Enter there instead of the launcher form', async () => {
+    showSessionNotice.value = true
+    sessionNoticeTitle.value = 'Session Terminated'
+    sessionNoticeMessage.value = 'Your terminal session was terminated by an administrator.'
+
+    router.push('/terminal')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      attachTo: document.body,
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    const noticeButton = wrapper.get('button.session-notice-button')
+    expect(document.activeElement).toBe(noticeButton.element)
+    expect(wrapper.get('.session-launcher').attributes('aria-hidden')).toBe('true')
+
+    await noticeButton.trigger('keydown.enter')
+
+    expect(dismissSessionNotice).toHaveBeenCalledOnce()
+    expect(startSession).not.toHaveBeenCalled()
+  })
+
   it('hides the start-session button and shows an unavailable heading when terminal access is denied', async () => {
     canStartSession.value = false
     sessionLauncherTitle.value = 'Terminal session unavailable'
