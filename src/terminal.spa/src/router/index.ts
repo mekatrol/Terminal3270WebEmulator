@@ -4,6 +4,7 @@ import type { RouteLocationNormalized } from 'vue-router'
 import { getBrowserAuthService } from '@/services/auth'
 import AdminSessionsView from '@/views/AdminSessionsView.vue'
 import AuthCallbackView from '@/views/AuthCallbackView.vue'
+import SignedOutView from '@/views/SignedOutView.vue'
 import TerminalView from '@/views/TerminalView.vue'
 import UnauthorizedView from '@/views/UnauthorizedView.vue'
 
@@ -35,6 +36,11 @@ const router = createRouter({
       path: '/auth/callback',
       name: 'auth-callback',
       component: AuthCallbackView,
+    },
+    {
+      path: '/signed-out',
+      name: 'signed-out',
+      component: SignedOutView,
     },
     {
       path: '/unauthorized',

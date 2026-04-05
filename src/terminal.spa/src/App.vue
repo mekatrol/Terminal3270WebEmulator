@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 import { fetchAppConfig } from '@/services/appConfig'
-import { getBrowserAuthService, type AuthState } from '@/services/auth'
+import {
+  getBrowserAuthService,
+  isAuthStateChangeStorageEvent,
+  type AuthState,
+} from '@/services/auth'
 
 const route = useRoute()
+const router = useRouter()
 const authService = getBrowserAuthService()
 const authState = ref<AuthState>(authService.getState())
 const terminalEndpointDisplayName = ref('Terminal 3270 Web Emulator')
@@ -39,6 +44,20 @@ async function refreshAuthState(): Promise<void> {
     typeof route.meta.requiredRole === 'string' ? route.meta.requiredRole : undefined
 
   authState.value = authService.getState(requiredRole)
+
+  if (
+    route.meta.requiresAuth &&
+    !authState.value.isAuthenticated &&
+    route.name !== 'auth-callback' &&
+    route.name !== 'signed-out'
+  ) {
+    await router.replace({
+      name: 'signed-out',
+      query: {
+        returnTo: route.fullPath,
+      },
+    })
+  }
 }
 
 async function handleAuthAction(): Promise<void> {
@@ -60,6 +79,14 @@ function handleWindowFocus(): void {
   void refreshAuthState()
 }
 
+function handleStorageChange(event: StorageEvent): void {
+  if (!isAuthStateChangeStorageEvent(event)) {
+    return
+  }
+
+  void refreshAuthState()
+}
+
 watch(
   () => route.fullPath,
   () => {
@@ -74,12 +101,12 @@ onMounted(() => {
   })
 
   window.addEventListener('focus', handleWindowFocus)
-  window.addEventListener('storage', handleWindowFocus)
+  window.addEventListener('storage', handleStorageChange)
 })
 
 onUnmounted(() => {
   window.removeEventListener('focus', handleWindowFocus)
-  window.removeEventListener('storage', handleWindowFocus)
+  window.removeEventListener('storage', handleStorageChange)
 })
 </script>
 

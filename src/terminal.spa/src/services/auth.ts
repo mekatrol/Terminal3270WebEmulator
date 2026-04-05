@@ -29,6 +29,7 @@ type StoredAuthSession = {
 
 const authorizationRequestStorageKey = 'terminal.oidc.authorizationRequest'
 const authSessionStorageKey = 'terminal.oidc.session'
+const authStateChangeStorageKey = 'terminal.oidc.state-change'
 const postLogoutReturnToPathStorageKey = 'terminal.oidc.postLogoutReturnToPath'
 const defaultAuthority = 'http://localhost:5099/mock-entra/terminaltenant/v2.0'
 const defaultClientId = 'terminal-spa'
@@ -110,6 +111,13 @@ function setLocalStorageItem(storageKey: string, value: unknown): void {
 function removeStorageItem(storageKey: string): void {
   window.sessionStorage.removeItem(storageKey)
   window.localStorage.removeItem(storageKey)
+}
+
+function publishAuthStateChange(eventType: 'signed-in' | 'signed-out'): void {
+  setLocalStorageItem(authStateChangeStorageKey, {
+    eventType,
+    occurredAtUtc: new Date().toISOString(),
+  })
 }
 
 function resolveDefaultReturnToPath(): string {
@@ -330,6 +338,7 @@ class OidcBrowserAuthService implements BrowserAuthService {
     } catch (error) {
       console.warn('[auth] refresh token exchange failed, clearing stored session', error)
       removeStorageItem(authSessionStorageKey)
+      publishAuthStateChange('signed-out')
       return false
     }
   }
@@ -352,6 +361,7 @@ class OidcBrowserAuthService implements BrowserAuthService {
     const discovery = await this.getDiscoveryDocument()
     removeStorageItem(authSessionStorageKey)
     removeStorageItem(authorizationRequestStorageKey)
+    publishAuthStateChange('signed-out')
     setSessionStorageItem(postLogoutReturnToPathStorageKey, returnToPath)
 
     if (!discovery.end_session_endpoint) {
@@ -441,6 +451,7 @@ class OidcBrowserAuthService implements BrowserAuthService {
     }
 
     setLocalStorageItem(authSessionStorageKey, session)
+    publishAuthStateChange('signed-in')
   }
 }
 
@@ -450,6 +461,10 @@ const authService: BrowserAuthService = isTestMode()
 
 export function getBrowserAuthService(): BrowserAuthService {
   return authService
+}
+
+export function isAuthStateChangeStorageEvent(event: StorageEvent): boolean {
+  return event.key === authSessionStorageKey || event.key === authStateChangeStorageKey
 }
 
 export async function authorizedFetch(

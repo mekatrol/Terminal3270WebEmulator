@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import App from '../App.vue'
 import router from '../router'
+import { getBrowserAuthService } from '../services/auth'
 
 function getSessionLauncherButton(
   wrapper: ReturnType<typeof mount>,
@@ -280,5 +281,44 @@ describe('App', () => {
     expect(terminalLink.text()).toBe('Terminal')
     expect(terminalLink.attributes('href')).toBe('/terminal')
     expect(terminalLink.attributes('target')).toBe('_blank')
+  })
+
+  it('navigates to the signed-out route when another tab clears the shared session', async () => {
+    router.push('/terminal')
+    await router.isReady()
+
+    const authService = getBrowserAuthService()
+    const ensureSessionSpy = vi.spyOn(authService, 'ensureSession').mockResolvedValue(false)
+    const getStateSpy = vi.spyOn(authService, 'getState').mockReturnValue({
+      isAuthenticated: false,
+      hasRequiredRole: false,
+      displayName: 'Anonymous',
+      roles: [],
+    })
+
+    mount(App, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: 'terminal.oidc.state-change',
+        newValue: JSON.stringify({
+          eventType: 'signed-out',
+          occurredAtUtc: new Date().toISOString(),
+        }),
+      }),
+    )
+
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('signed-out')
+
+    ensureSessionSpy.mockRestore()
+    getStateSpy.mockRestore()
   })
 })
