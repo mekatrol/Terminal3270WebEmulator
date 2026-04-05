@@ -160,11 +160,13 @@ MSTest is the Microsoft test framework used as the .NET test runner.
 
 ### WCAG compliance and UX themes and styles
 
-User interface code and components must be WCAG 2.2 AA compliant. Semantic HTML should be used.
+User interface code and components must meet WCAG 2.2 AA requirements.
 
-Solid colors are preferred over gradiant colors (don't use gradient colots in theming)
+Use semantic HTML wherever possible so structure, meaning, and accessibility are preserved.
 
-Use vue js code instead of semantic tages. eg an <a> HTML tag should not be used, a vue js <RouterLink> tag should be used instead.
+Prefer solid colors over gradients in the application theme. Avoid decorative gradients unless there is a specific design reason and accessibility is maintained.
+
+Framework components should be used when they represent application behavior more accurately than raw HTML elements. For example, use Vue's `RouterLink` for in-application navigation instead of a plain `<a>` element when client-side routing is intended.
 
 ### Host platforms
 
