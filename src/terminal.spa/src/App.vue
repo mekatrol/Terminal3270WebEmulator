@@ -2,11 +2,13 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
+import { fetchAppConfig } from '@/services/appConfig'
 import { getBrowserAuthService, type AuthState } from '@/services/auth'
 
 const route = useRoute()
 const authService = getBrowserAuthService()
 const authState = ref<AuthState>(authService.getState())
+const terminalEndpointDisplayName = ref('Terminal 3270 Web Emulator')
 const isAuthActionPending = ref(false)
 
 const authButtonLabel = computed(() => (authState.value.isAuthenticated ? 'Sign out' : 'Sign in'))
@@ -30,11 +32,11 @@ async function handleAuthAction(): Promise<void> {
 
   try {
     if (authState.value.isAuthenticated) {
-      await authService.signOut('/')
+      await authService.signOut(route.fullPath)
       return
     }
 
-    await authService.beginSignIn(route.fullPath)
+    await authService.beginSignIn()
   } finally {
     isAuthActionPending.value = false
   }
@@ -53,6 +55,10 @@ watch(
 )
 
 onMounted(() => {
+  void fetchAppConfig().then((appConfig) => {
+    terminalEndpointDisplayName.value = appConfig.terminalEndpointDisplayName
+  })
+
   window.addEventListener('focus', handleWindowFocus)
   window.addEventListener('storage', handleWindowFocus)
 })
@@ -68,7 +74,7 @@ onUnmounted(() => {
     <header class="app-header">
       <div class="brand-block">
         <p class="brand-kicker">Terminal 3270</p>
-        <h1 class="brand-title">Web Emulator</h1>
+        <h1 class="brand-title">{{ terminalEndpointDisplayName }}</h1>
       </div>
       <div class="identity-block" aria-live="polite">
         <p class="identity-label">Current identity</p>
@@ -105,6 +111,7 @@ onUnmounted(() => {
 }
 
 .app-shell {
+  --app-header-height: 5.5rem;
   min-height: 100vh;
 }
 
@@ -126,14 +133,22 @@ onUnmounted(() => {
 .brand-kicker {
   margin: 0;
   color: #77bdd4;
-  font: 700 0.78rem/1.2 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font:
+    700 0.78rem/1.2 'Segoe UI',
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .brand-title {
   margin: 0.18rem 0 0;
-  font: 700 1.4rem/1.1 Georgia, 'Times New Roman', serif;
+  font:
+    700 1.4rem/1.1 Georgia,
+    'Times New Roman',
+    serif;
 }
 
 .identity-block {
@@ -143,7 +158,12 @@ onUnmounted(() => {
 .identity-label {
   margin: 0;
   color: #77bdd4;
-  font: 600 0.78rem/1.2 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font:
+    600 0.78rem/1.2 'Segoe UI',
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -154,7 +174,12 @@ onUnmounted(() => {
   color: #f1fafc;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font: 500 0.98rem/1.4 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font:
+    500 0.98rem/1.4 'Segoe UI',
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif;
 }
 
 .auth-button {
@@ -163,7 +188,12 @@ onUnmounted(() => {
   border-radius: 999px;
   background: linear-gradient(135deg, #0d536b 0%, #1883a6 100%);
   color: #effbfd;
-  font: 700 0.95rem/1 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font:
+    700 0.95rem/1 'Segoe UI',
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif;
   cursor: pointer;
 }
 
@@ -173,10 +203,14 @@ onUnmounted(() => {
 }
 
 .app-content {
-  min-height: calc(100vh - 5.5rem);
+  min-height: calc(100vh - var(--app-header-height));
 }
 
 @media (max-width: 900px) {
+  .app-shell {
+    --app-header-height: 9.5rem;
+  }
+
   .app-header {
     grid-template-columns: 1fr;
     align-items: start;

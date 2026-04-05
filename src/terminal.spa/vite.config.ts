@@ -22,6 +22,11 @@ export default defineConfig(({ mode }) => {
     server: terminalProxyTarget
       ? {
           proxy: {
+            '/api/app-config': {
+              target: terminalProxyTarget,
+              changeOrigin: true,
+              secure: false,
+            },
             '/api/admin/sessions': {
               target: terminalProxyTarget,
               changeOrigin: true,

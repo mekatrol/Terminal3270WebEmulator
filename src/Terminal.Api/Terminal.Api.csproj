@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Terminal.Test.Unit" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Terminal.Common\Terminal.Common.csproj" />
     <ProjectReference Include="..\Terminal.Data\Terminal.Data.csproj" />
   </ItemGroup>

@@ -1,9 +1,19 @@
-import type { SessionControlMessage, SessionReadyMessage, Tn3270Frame } from '@/types/TN3270'
+import type {
+  SessionControlMessage,
+  SessionEndedMessage,
+  SessionReadyMessage,
+  Tn3270Frame,
+} from '@/types/TN3270'
 import { appendAccessTokenToUrl } from '@/services/auth'
 
 export interface TerminalSessionTransport {
   connect(handlers: {
-    onDisconnect: (event: { code: number; reason: string; wasClean: boolean }) => void
+    onDisconnect: (event: {
+      code: number
+      reason: string
+      sessionEnded: SessionEndedMessage | null
+      wasClean: boolean
+    }) => void
     onError: (message: string) => void
     onFrame: (frame: Tn3270Frame) => void
   }): Promise<SessionReadyMessage>
@@ -74,6 +84,14 @@ function parseControlMessage(rawValue: string): SessionControlMessage {
     return message as SessionControlMessage
   }
 
+  if (
+    message.type === 'session-ended' &&
+    (message.reason === 'administrator-terminated' ||
+      message.reason === 'endpoint-server-terminated')
+  ) {
+    return message as SessionEndedMessage
+  }
+
   throw new Error('Received an unknown terminal proxy control message.')
 }
 
@@ -91,7 +109,12 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
   private socket: WebSocket | null = null
 
   async connect(handlers: {
-    onDisconnect: (event: { code: number; reason: string; wasClean: boolean }) => void
+    onDisconnect: (event: {
+      code: number
+      reason: string
+      sessionEnded: SessionEndedMessage | null
+      wasClean: boolean
+    }) => void
     onError: (message: string) => void
     onFrame: (frame: Tn3270Frame) => void
   }): Promise<SessionReadyMessage> {
@@ -105,6 +128,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
 
     const ready = await new Promise<SessionReadyMessage>((resolve, reject) => {
       let settled = false
+      let sessionEndedMessage: SessionEndedMessage | null = null
 
       const fail = (error: Error): void => {
         if (settled) {
@@ -124,6 +148,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
         handlers.onDisconnect({
           code: event.code,
           reason: event.reason,
+          sessionEnded: sessionEndedMessage,
           wasClean: event.wasClean,
         })
         console.log('[TN3270] websocket close', {
@@ -135,14 +160,16 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
 
         if (!settled) {
           fail(
-            new Error(`Terminal proxy WebSocket closed before startup completed (${event.code}).`),
+            new Error(
+              `Unable to establish the terminal proxy WebSocket connection before startup completed (${event.code}).`,
+            ),
           )
         }
       })
 
       socket.addEventListener('error', () => {
         console.error('[TN3270] websocket error', { url: webSocketUrl })
-        fail(new Error('Unable to open the terminal proxy WebSocket connection.'))
+        fail(new Error('Unable to establish the terminal proxy WebSocket connection.'))
       })
 
       socket.addEventListener('message', (event) => {
@@ -152,6 +179,11 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
           if (controlMessage.type === 'session-error') {
             handlers.onError(controlMessage.message)
             fail(new Error(controlMessage.message))
+            return
+          }
+
+          if (controlMessage.type === 'session-ended') {
+            sessionEndedMessage = controlMessage
             return
           }
 

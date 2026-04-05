@@ -9,3 +9,8 @@ internal sealed record TerminalSessionReadyMessage(
     TimeSpan SessionLifetime);
 
 internal sealed record TerminalSessionErrorMessage(string Type, string Message);
+
+internal sealed record TerminalSessionEndedMessage(
+    string Type,
+    string Reason,
+    string? TerminalEndpointDisplayName);

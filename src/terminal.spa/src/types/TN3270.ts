@@ -54,7 +54,13 @@ export type SessionErrorMessage = {
   message: string
 }
 
-export type SessionControlMessage = SessionReadyMessage | SessionErrorMessage
+export type SessionEndedMessage = {
+  type: 'session-ended'
+  reason: 'administrator-terminated' | 'endpoint-server-terminated'
+  terminalEndpointDisplayName: string | null
+}
+
+export type SessionControlMessage = SessionReadyMessage | SessionErrorMessage | SessionEndedMessage
 
 export type Tn3270Frame = {
   dataType: number

@@ -22,7 +22,9 @@ onMounted(async () => {
   <main class="auth-callback-page">
     <section class="auth-callback-panel">
       <h1>Completing sign-in</h1>
-      <p v-if="!errorMessage">The browser is finalizing the OpenID Connect authorization code flow.</p>
+      <p v-if="!errorMessage">
+        The browser is finalizing the OpenID Connect authorization code flow.
+      </p>
       <p v-else role="alert">{{ errorMessage }}</p>
     </section>
   </main>

@@ -20,7 +20,7 @@ const authState = getBrowserAuthService().getState()
 
 <style scoped>
 .terminal-page {
-  min-height: 100vh;
+  min-height: 100%;
 }
 
 .sr-only {

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteLocationNormalized } from 'vue-router'
 
 import { getBrowserAuthService } from '@/services/auth'
 import AdminSessionsView from '@/views/AdminSessionsView.vue'
@@ -43,7 +44,25 @@ const router = createRouter({
   ],
 })
 
+function resolvePostLogoutReturnPath(to: RouteLocationNormalized): string | null {
+  if (to.name === 'auth-callback') {
+    return null
+  }
+
+  if (typeof to.query.state !== 'string' || !to.query.state.startsWith('/')) {
+    return null
+  }
+
+  return to.query.state
+}
+
 router.beforeEach(async (to) => {
+  const postLogoutReturnPath = resolvePostLogoutReturnPath(to)
+
+  if (postLogoutReturnPath) {
+    return postLogoutReturnPath
+  }
+
   const authService = getBrowserAuthService()
 
   if (!to.meta.requiresAuth) {
@@ -57,11 +76,15 @@ router.beforeEach(async (to) => {
     return false
   }
 
-  const requiredRole =
-    typeof to.meta.requiredRole === 'string' ? to.meta.requiredRole : undefined
+  const requiredRole = typeof to.meta.requiredRole === 'string' ? to.meta.requiredRole : undefined
 
   if (!authService.isAuthorized(requiredRole)) {
-    return { name: 'unauthorized' }
+    return {
+      name: 'unauthorized',
+      query: {
+        returnTo: to.fullPath,
+      },
+    }
   }
 
   return true

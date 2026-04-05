@@ -22,6 +22,28 @@
 
       <div class="terminal-frame">
         <section
+          v-if="showSessionNotice"
+          class="session-notice-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="session-notice-title"
+          aria-describedby="session-notice-message"
+          @mousedown.stop
+          @click.stop
+        >
+          <div class="session-notice-panel">
+            <h3 id="session-notice-title">{{ sessionNoticeTitle }}</h3>
+            <p id="session-notice-message" class="session-notice-message">
+              {{ sessionNoticeMessage }}
+            </p>
+            <div class="session-notice-actions">
+              <button class="session-notice-button" type="button" @click="dismissSessionNotice">
+                Close
+              </button>
+            </div>
+          </div>
+        </section>
+        <section
           v-if="showSessionLauncher"
           class="session-launcher"
           aria-labelledby="session-launcher-title"
@@ -73,8 +95,12 @@ const terminalRef = ref<HTMLElement | null>(null)
 const sessionLauncherButtonRef = ref<HTMLButtonElement | null>(null)
 const {
   accessibleSummary,
+  dismissSessionNotice,
   handleKeydown,
+  sessionNoticeMessage,
+  sessionNoticeTitle,
   sessionLauncherMessage,
+  showSessionNotice,
   showSessionLauncher,
   snapshot,
   startSession,
@@ -223,7 +249,7 @@ onMounted(() => {
 
 <style scoped>
 .terminal-page {
-  min-height: 100vh;
+  min-height: 100%;
 }
 
 .terminal-shell {
@@ -260,7 +286,7 @@ onMounted(() => {
   --tn3270-cursor-bg: #8ce0b4;
   --tn3270-cursor-fg: #071214;
   display: grid;
-  min-height: 100vh;
+  min-height: 100%;
   width: 100%;
   grid-template-rows: auto 1fr;
   overflow: hidden;
@@ -309,12 +335,73 @@ onMounted(() => {
 }
 
 .terminal-frame {
+  position: relative;
   display: grid;
   min-height: 0;
   padding: min(2vw, 1.5rem);
   background:
     linear-gradient(180deg, rgb(40 72 80 / 20%), transparent 18%),
     linear-gradient(135deg, rgb(12 56 48 / 20%), transparent 45%);
+}
+
+.session-notice-overlay {
+  position: absolute;
+  inset: min(2vw, 1.5rem);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: min(4vw, 2rem);
+  background: rgb(2 8 11 / 74%);
+  backdrop-filter: blur(4px);
+}
+
+.session-notice-panel {
+  display: grid;
+  gap: 1rem;
+  width: min(40rem, 100%);
+  padding: min(4vw, 2rem);
+  border: 1px solid rgb(255 122 107 / 35%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 6%),
+    0 1.4rem 4rem rgb(0 0 0 / 55%);
+  background: linear-gradient(180deg, rgb(77 18 18 / 92%), rgb(22 8 8 / 96%)), #160808;
+}
+
+.session-notice-panel h3 {
+  margin: 0;
+  color: #f4f7fb;
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
+}
+
+.session-notice-message {
+  margin: 0;
+  color: #f7d7d1;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  user-select: text;
+  cursor: text;
+}
+
+.session-notice-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.session-notice-button {
+  padding: 0.8rem 1.2rem;
+  border: 1px solid rgb(255 122 107 / 45%);
+  background: linear-gradient(135deg, #3a1414 0%, #5b1f1f 100%);
+  color: #f4f7fb;
+  font: inherit;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.session-notice-button:hover,
+.session-notice-button:focus-visible {
+  border-color: rgb(255 122 107 / 85%);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(255 122 107 / 16%);
 }
 
 .terminal-grid {

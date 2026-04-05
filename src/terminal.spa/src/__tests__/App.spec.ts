@@ -5,9 +5,23 @@ import { flushPromises, mount } from '@vue/test-utils'
 import App from '../App.vue'
 import router from '../router'
 
+function getSessionLauncherButton(
+  wrapper: ReturnType<typeof mount>,
+): ReturnType<typeof wrapper.get> {
+  return wrapper.get('button.session-launcher-button')
+}
+
 const showSessionLauncher = ref(true)
+const showSessionNotice = ref(false)
 const sessionLauncherMessage = ref('Start a new terminal session.')
+const sessionNoticeMessage = ref<string | null>(null)
+const sessionNoticeTitle = ref<string | null>(null)
 const startSession = vi.fn(async () => {})
+const dismissSessionNotice = vi.fn(() => {
+  showSessionNotice.value = false
+  sessionNoticeTitle.value = null
+  sessionNoticeMessage.value = null
+})
 const fetchMock = vi.fn<typeof fetch>()
 
 vi.stubGlobal('fetch', fetchMock)
@@ -17,8 +31,12 @@ vi.mock('@/composables/useTN3270Session', () => ({
     typeof import('@/composables/useTN3270Session').useTN3270Session
   > => ({
     accessibleSummary: computed(() => 'TERMINAL 3270 EMULATOR. CONNECTED. connected.'),
+    dismissSessionNotice,
     handleKeydown: vi.fn(async () => {}),
+    sessionNoticeMessage: computed(() => sessionNoticeMessage.value),
+    sessionNoticeTitle: computed(() => sessionNoticeTitle.value),
     sessionLauncherMessage: computed(() => sessionLauncherMessage.value),
+    showSessionNotice: computed(() => showSessionNotice.value),
     showSessionLauncher: computed(() => showSessionLauncher.value),
     snapshot: ref({
       rows: 1,
@@ -62,13 +80,13 @@ vi.mock('@/composables/useTN3270Session', () => ({
 }))
 
 describe('App', () => {
-  function getSessionLauncherButton(wrapper: ReturnType<typeof mount>) {
-    return wrapper.get('button.session-launcher-button')
-  }
-
   beforeEach(() => {
     showSessionLauncher.value = true
+    showSessionNotice.value = false
     sessionLauncherMessage.value = 'Start a new terminal session.'
+    sessionNoticeMessage.value = null
+    sessionNoticeTitle.value = null
+    dismissSessionNotice.mockClear()
     startSession.mockClear()
     fetchMock.mockReset()
     fetchMock.mockResolvedValue(
@@ -133,6 +151,32 @@ describe('App', () => {
     expect(wrapper.text()).toContain('The terminal session ended. Start a new session.')
     await getSessionLauncherButton(wrapper).trigger('click')
     expect(startSession).toHaveBeenCalledOnce()
+  })
+
+  it('renders a selectable notice overlay for copyable terminal errors', async () => {
+    showSessionNotice.value = true
+    sessionNoticeTitle.value = 'Terminal Connection Failed'
+    sessionNoticeMessage.value =
+      'Unable to establish the terminal session connection. Confirm the server is available and try again.'
+
+    router.push('/terminal')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.get('[role="dialog"]').text()).toContain('Terminal Connection Failed')
+    expect(wrapper.text()).toContain(
+      'Unable to establish the terminal session connection. Confirm the server is available and try again.',
+    )
+
+    await wrapper.get('button.session-notice-button').trigger('click')
+    expect(dismissSessionNotice).toHaveBeenCalledOnce()
   })
 
   it('submits the start-session form when the launcher form is submitted', async () => {

@@ -85,7 +85,7 @@ internal static class AdminSessionEndpoints
                 continue;
             }
 
-            if (!sessionRegistry.TryRequestTermination(session.TerminalSessionId))
+            if (!await sessionRegistry.TryRequestTerminationAsync(session.TerminalSessionId))
             {
                 session.IsActive = false;
                 session.ClosedDateTimeUtc = DateTimeOffset.UtcNow;

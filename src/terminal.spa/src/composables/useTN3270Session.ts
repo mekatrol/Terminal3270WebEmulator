@@ -53,18 +53,26 @@ function mapModifiedKeyToAid(event: KeyboardEvent): Tn3270AidKey | null {
 
 export function useTN3270Session(): {
   accessibleSummary: ComputedRef<string>
+  dismissSessionNotice: () => void
   handleKeydown: (event: KeyboardEvent) => Promise<void>
+  sessionNoticeMessage: ComputedRef<string | null>
+  sessionNoticeTitle: ComputedRef<string | null>
   sessionLauncherMessage: ComputedRef<string>
   snapshot: Ref<TN3270ScreenSnapshot>
+  showSessionNotice: ComputedRef<boolean>
   showSessionLauncher: ComputedRef<boolean>
   startSession: () => Promise<void>
 } {
   let screen: Tn3270TerminalScreen | null = null
+  let isStartingSession = false
   let isUnmounting = false
+  let startupFailureHandled = false
 
   const snapshot = ref<TN3270ScreenSnapshot>(
     createInitialSnapshot('disconnected', 'START A NEW TERMINAL SESSION', 'white'),
   )
+  const sessionNoticeMessage = ref<string | null>(null)
+  const sessionNoticeTitle = ref<string | null>(null)
   const showSessionLauncher = ref(true)
   const sessionLauncherMessage = ref('Start a new terminal session.')
 
@@ -83,9 +91,31 @@ export function useTN3270Session(): {
     sessionLauncherMessage.value = message
   }
 
+  function dismissSessionNotice(): void {
+    sessionNoticeTitle.value = null
+    sessionNoticeMessage.value = null
+  }
+
+  function showSessionNotice(title: string, message: string): void {
+    sessionNoticeTitle.value = title
+    sessionNoticeMessage.value = message
+  }
+
+  function showStartupConnectionFailure(): void {
+    startupFailureHandled = true
+    const message =
+      'Unable to establish the terminal session connection. Confirm the server is available and try again.'
+    updateSnapshot('disconnected', 'UNABLE TO ESTABLISH TERMINAL CONNECTION', 'red')
+    showLauncher(message)
+    showSessionNotice('Terminal Connection Failed', message)
+  }
+
   async function startSession(): Promise<void> {
+    isStartingSession = true
     isUnmounting = false
+    startupFailureHandled = false
     screen = null
+    dismissSessionNotice()
     showSessionLauncher.value = false
     sessionLauncherMessage.value = 'Start a new terminal session.'
     updateSnapshot('connecting', 'CONNECTING TO TERMINAL SESSION', 'yellow')
@@ -112,8 +142,14 @@ export function useTN3270Session(): {
         },
         onError(message) {
           console.error('[TN3270] session error', message)
+          if (isStartingSession) {
+            showStartupConnectionFailure()
+            return
+          }
+
           updateSnapshot('disconnected', message, 'red')
           showLauncher('The terminal session could not be started. Try again.')
+          showSessionNotice('Terminal Session Error', message)
         },
         onDisconnect(event) {
           if (isUnmounting) {
@@ -121,18 +157,64 @@ export function useTN3270Session(): {
           }
 
           console.log('[TN3270] session disconnected')
+          if (startupFailureHandled && !event.sessionEnded) {
+            return
+          }
+
+          if (isStartingSession && !event.sessionEnded) {
+            showStartupConnectionFailure()
+            return
+          }
+
+          if (event.sessionEnded?.reason === 'administrator-terminated') {
+            const message = 'Your terminal session was terminated by an administrator.'
+            updateSnapshot('disconnected', 'SESSION TERMINATED BY ADMINISTRATOR', 'red')
+            showLauncher(message)
+            showSessionNotice('Session Terminated', message)
+            return
+          }
+
+          if (event.sessionEnded?.reason === 'endpoint-server-terminated') {
+            const terminalEndpointDisplayName =
+              event.sessionEnded.terminalEndpointDisplayName || 'the endpoint server'
+            const message = `Your terminal session was terminated by ${terminalEndpointDisplayName}.`
+            updateSnapshot('disconnected', 'SESSION TERMINATED BY ENDPOINT SERVER', 'red')
+            showLauncher(message)
+            showSessionNotice('Session Terminated', message)
+            return
+          }
+
+          if (event.reason === 'Terminal session terminated by administrator.') {
+            const message = 'Your terminal session was terminated by an administrator.'
+            updateSnapshot('disconnected', 'SESSION TERMINATED BY ADMINISTRATOR', 'red')
+            showLauncher(message)
+            showSessionNotice('Session Terminated', message)
+            return
+          }
+
+          const endpointTerminationPrefix = 'Terminal session terminated by '
+          if (event.reason.startsWith(endpointTerminationPrefix)) {
+            const terminalEndpointDisplayName = event.reason
+              .slice(endpointTerminationPrefix.length)
+              .replace(/\.$/, '')
+              .trim()
+
+            const message = `Your terminal session was terminated by ${terminalEndpointDisplayName || 'the endpoint server'}.`
+            updateSnapshot('disconnected', 'SESSION TERMINATED BY ENDPOINT SERVER', 'red')
+            showLauncher(message)
+            showSessionNotice('Session Terminated', message)
+            return
+          }
+
           if (snapshot.value.connectionState !== 'disconnected' || event.reason) {
-            const message =
-              event.reason === 'Terminal host session ended.'
-                ? 'TERMINAL SESSION ENDED'
-                : 'TERMINAL SESSION DISCONNECTED'
-            updateSnapshot('disconnected', message, 'red')
+            updateSnapshot('disconnected', 'TERMINAL SESSION DISCONNECTED', 'red')
           }
 
           showLauncher('The terminal session ended. Start a new session.')
         },
       })
 
+      isStartingSession = false
       screen = Tn3270TerminalScreen.fromTerminalType(ready.terminalType)
       console.log('[TN3270] screen model created', {
         terminalType: ready.terminalType,
@@ -141,15 +223,20 @@ export function useTN3270Session(): {
       })
       updateSnapshot('connected', `CONNECTED TO ${ready.host}:${ready.port}`, 'green')
     } catch (error) {
+      isStartingSession = false
+
       if (isUnmounting) {
+        return
+      }
+
+      if (startupFailureHandled) {
         return
       }
 
       const message =
         error instanceof Error ? error.message : 'Unable to connect to terminal session.'
       console.error('[TN3270] connect failed', message)
-      updateSnapshot('disconnected', message, 'red')
-      showLauncher('Unable to connect. Start a new session.')
+      showStartupConnectionFailure()
     }
   }
 
@@ -298,9 +385,13 @@ export function useTN3270Session(): {
 
   return {
     accessibleSummary,
+    dismissSessionNotice,
     handleKeydown,
+    sessionNoticeMessage: computed(() => sessionNoticeMessage.value),
+    sessionNoticeTitle: computed(() => sessionNoticeTitle.value),
     sessionLauncherMessage: computed(() => sessionLauncherMessage.value),
     snapshot,
+    showSessionNotice: computed(() => sessionNoticeMessage.value !== null),
     showSessionLauncher: computed(() => showSessionLauncher.value),
     startSession,
   }

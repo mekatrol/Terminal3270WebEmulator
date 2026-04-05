@@ -1,11 +1,19 @@
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
+
 import { getBrowserAuthService } from '@/services/auth'
 
+const route = useRoute()
 const authService = getBrowserAuthService()
 const authState = authService.getState()
 
 async function handleSignOut(): Promise<void> {
-  await authService.signOut('/')
+  const returnToPath =
+    typeof route.query.returnTo === 'string' && route.query.returnTo.startsWith('/')
+      ? route.query.returnTo
+      : '/'
+
+  await authService.signOut(returnToPath)
 }
 </script>
 
@@ -17,9 +25,7 @@ async function handleSignOut(): Promise<void> {
         The current identity is authenticated as {{ authState.displayName }}, but it does not hold
         the `Server.Admin` role required for this route.
       </p>
-      <p>
-        Sign out and authenticate with a different account if you need administrative access.
-      </p>
+      <p>Sign out and authenticate with a different account if you need administrative access.</p>
       <button type="button" class="sign-out-button" @click="handleSignOut">Sign out</button>
     </section>
   </main>

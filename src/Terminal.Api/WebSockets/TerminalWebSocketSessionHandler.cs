@@ -50,6 +50,8 @@ internal sealed class TerminalWebSocketSessionHandler(
             CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
         sessionCancellationSource.CancelAfter(proxyOptions.SessionLifetime);
         var closeDescription = "Terminal proxy session closed.";
+        Task? browserToHostTask = null;
+        Task? hostToBrowserTask = null;
         var trackedSession = await CreateTrackedSessionAsync(
             context,
             terminalDataContext,
@@ -57,7 +59,10 @@ internal sealed class TerminalWebSocketSessionHandler(
 
         if (trackedSession is not null)
         {
-            _sessionRegistry.Register(trackedSession.TerminalSessionId, sessionCancellationSource);
+            _sessionRegistry.Register(
+                trackedSession.TerminalSessionId,
+                sessionCancellationSource,
+                () => NotifyAdministratorTerminationAsync(webSocket));
         }
 
         try
@@ -100,20 +105,17 @@ internal sealed class TerminalWebSocketSessionHandler(
                     proxyOptions.SessionLifetime),
                 sessionCancellationSource.Token);
 
-            var browserToHostTask = ProxyBrowserToHostAsync(
+            browserToHostTask = ProxyBrowserToHostAsync(
                 webSocket,
                 terminalService,
                 sessionCancellationSource.Token);
-            var hostToBrowserTask = ProxyHostToBrowserAsync(
+            hostToBrowserTask = ProxyHostToBrowserAsync(
                 webSocket,
                 terminalService,
                 sessionCancellationSource.Token);
 
-            _ = await Task.WhenAny(browserToHostTask, hostToBrowserTask);
-            sessionCancellationSource.Cancel();
-
-            await AwaitProxyTaskAsync(browserToHostTask);
-            await AwaitProxyTaskAsync(hostToBrowserTask);
+            var completedProxyTask = await Task.WhenAny(browserToHostTask, hostToBrowserTask);
+            await completedProxyTask;
         }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
@@ -133,6 +135,13 @@ internal sealed class TerminalWebSocketSessionHandler(
                         "Terminal proxy session {TerminalSessionId} was terminated by an administrator.",
                         trackedSession.TerminalSessionId);
                 }
+
+                await SendControlMessageSafeAsync(
+                    webSocket,
+                    new TerminalSessionEndedMessage(
+                        "session-ended",
+                        "administrator-terminated",
+                        null));
             }
             else if (_logger.IsEnabled(LogLevel.Information))
             {
@@ -143,11 +152,19 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
         catch (EndOfStreamException exception)
         {
-            closeDescription = "Terminal host session ended.";
+            closeDescription = $"Terminal session terminated by {proxyOptions.TerminalEndpointDisplayName}.";
             _logger.LogInformation(exception, "Terminal host closed the TN3270/TN3270E session.");
+
+            await SendControlMessageSafeAsync(
+                webSocket,
+                new TerminalSessionEndedMessage(
+                    "session-ended",
+                    "endpoint-server-terminated",
+                    proxyOptions.TerminalEndpointDisplayName));
         }
         catch (WebSocketException exception)
         {
+            closeDescription = "Browser disconnected unexpectedly.";
             _logger.LogWarning(exception, "WebSocket transport failed while proxying terminal traffic.");
         }
         catch (Exception exception)
@@ -162,6 +179,11 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
         finally
         {
+            await CancelAndAwaitProxyTasksAsync(
+                sessionCancellationSource,
+                browserToHostTask,
+                hostToBrowserTask);
+
             await terminalService.DisconnectAsync(CancellationToken.None);
 
             if (trackedSession is not null)
@@ -182,6 +204,27 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
     }
 
+    private static async Task CancelAndAwaitProxyTasksAsync(
+        CancellationTokenSource sessionCancellationSource,
+        Task? browserToHostTask,
+        Task? hostToBrowserTask)
+    {
+        if (!sessionCancellationSource.IsCancellationRequested)
+        {
+            sessionCancellationSource.Cancel();
+        }
+
+        if (browserToHostTask is not null)
+        {
+            await AwaitProxyTaskAsync(browserToHostTask);
+        }
+
+        if (hostToBrowserTask is not null)
+        {
+            await AwaitProxyTaskAsync(hostToBrowserTask);
+        }
+    }
+
     private static async Task AwaitProxyTaskAsync(Task proxyTask)
     {
         try
@@ -189,6 +232,15 @@ internal sealed class TerminalWebSocketSessionHandler(
             await proxyTask;
         }
         catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (WebSocketException)
+        {
+        }
+        catch (EndOfStreamException)
         {
         }
     }
@@ -242,6 +294,16 @@ internal sealed class TerminalWebSocketSessionHandler(
         {
             _logger.LogDebug(exception, "Failed to send terminal proxy control message because the socket is closing.");
         }
+    }
+
+    private async Task NotifyAdministratorTerminationAsync(WebSocket webSocket)
+    {
+        await SendControlMessageSafeAsync(
+            webSocket,
+            new TerminalSessionEndedMessage(
+                "session-ended",
+                "administrator-terminated",
+                null));
     }
 
     private async Task<TerminalSession?> CreateTrackedSessionAsync(

@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Terminal.Api\Terminal.Api.csproj" />
     <ProjectReference Include="..\Terminal.Common\Terminal.Common.csproj" />
     <ProjectReference Include="..\Terminal.Data\Terminal.Data.csproj" />
     <ProjectReference Include="..\Terminal.MockServer\Terminal.MockServer.csproj" />

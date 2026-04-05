@@ -29,6 +29,7 @@ type StoredAuthSession = {
 
 const authorizationRequestStorageKey = 'terminal.oidc.authorizationRequest'
 const authSessionStorageKey = 'terminal.oidc.session'
+const postLogoutReturnToPathStorageKey = 'terminal.oidc.postLogoutReturnToPath'
 const defaultAuthority = 'http://localhost:5099/mock-entra/terminaltenant/v2.0'
 const defaultClientId = 'terminal-spa'
 const defaultScopes = [
@@ -88,7 +89,8 @@ async function createPkceChallenge(codeVerifier: string): Promise<string> {
 }
 
 function getStorageItem<T>(storageKey: string): T | null {
-  const rawValue = window.sessionStorage.getItem(storageKey) ?? window.localStorage.getItem(storageKey)
+  const rawValue =
+    window.sessionStorage.getItem(storageKey) ?? window.localStorage.getItem(storageKey)
 
   if (!rawValue) {
     return null
@@ -108,6 +110,16 @@ function setLocalStorageItem(storageKey: string, value: unknown): void {
 function removeStorageItem(storageKey: string): void {
   window.sessionStorage.removeItem(storageKey)
   window.localStorage.removeItem(storageKey)
+}
+
+function resolveDefaultReturnToPath(): string {
+  const storedReturnToPath = getStorageItem<string>(postLogoutReturnToPathStorageKey)
+
+  if (typeof storedReturnToPath === 'string' && storedReturnToPath.startsWith('/')) {
+    return storedReturnToPath
+  }
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`
 }
 
 function resolveAuthority(): string {
@@ -151,7 +163,9 @@ function parseJwtPayload(token: string): Record<string, unknown> {
 }
 
 function toStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
 }
 
 function readSession(): StoredAuthSession | null {
@@ -216,7 +230,7 @@ class DemoBrowserAuthService implements BrowserAuthService {
 class OidcBrowserAuthService implements BrowserAuthService {
   private discoveryPromise: Promise<OpenIdConfiguration> | null = null
 
-  async beginSignIn(returnToPath = `${window.location.pathname}${window.location.search}${window.location.hash}`): Promise<void> {
+  async beginSignIn(returnToPath = resolveDefaultReturnToPath()): Promise<void> {
     const discovery = await this.getDiscoveryDocument()
     const state = createRandomString()
     const nonce = createRandomString()
@@ -255,27 +269,35 @@ class OidcBrowserAuthService implements BrowserAuthService {
 
     const code = callbackUrl.searchParams.get('code')
     const state = callbackUrl.searchParams.get('state')
-    const authorizationRequest = getStorageItem<StoredAuthorizationRequest>(authorizationRequestStorageKey)
+    const authorizationRequest = getStorageItem<StoredAuthorizationRequest>(
+      authorizationRequestStorageKey,
+    )
 
     if (!code || !state || !authorizationRequest) {
       throw new Error('The authentication callback is missing required state.')
     }
 
     if (authorizationRequest.state !== state) {
-      throw new Error('The authentication callback state does not match the original sign-in request.')
+      throw new Error(
+        'The authentication callback state does not match the original sign-in request.',
+      )
     }
 
     const discovery = await this.getDiscoveryDocument()
-    const tokenResponse = await this.requestToken(discovery.token_endpoint, new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: resolveClientId(),
-      code,
-      redirect_uri: resolveRedirectUri(),
-      code_verifier: authorizationRequest.codeVerifier,
-    }))
+    const tokenResponse = await this.requestToken(
+      discovery.token_endpoint,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: resolveClientId(),
+        code,
+        redirect_uri: resolveRedirectUri(),
+        code_verifier: authorizationRequest.codeVerifier,
+      }),
+    )
 
     this.persistTokenResponse(tokenResponse)
     removeStorageItem(authorizationRequestStorageKey)
+    removeStorageItem(postLogoutReturnToPathStorageKey)
     return authorizationRequest.returnToPath || '/terminal'
   }
 
@@ -294,11 +316,14 @@ class OidcBrowserAuthService implements BrowserAuthService {
     const discovery = await this.getDiscoveryDocument()
 
     try {
-      const tokenResponse = await this.requestToken(discovery.token_endpoint, new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: resolveClientId(),
-        refresh_token: expiredSession.refreshToken,
-      }))
+      const tokenResponse = await this.requestToken(
+        discovery.token_endpoint,
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: resolveClientId(),
+          refresh_token: expiredSession.refreshToken,
+        }),
+      )
 
       this.persistTokenResponse(tokenResponse)
       return true
@@ -310,7 +335,7 @@ class OidcBrowserAuthService implements BrowserAuthService {
 
   async getAccessToken(): Promise<string | null> {
     const hasSession = await this.ensureSession()
-    return hasSession ? readSession()?.accessToken ?? null : null
+    return hasSession ? (readSession()?.accessToken ?? null) : null
   }
 
   getState(requiredRole?: string): AuthState {
@@ -326,6 +351,7 @@ class OidcBrowserAuthService implements BrowserAuthService {
     const discovery = await this.getDiscoveryDocument()
     removeStorageItem(authSessionStorageKey)
     removeStorageItem(authorizationRequestStorageKey)
+    setSessionStorageItem(postLogoutReturnToPathStorageKey, returnToPath)
 
     if (!discovery.end_session_endpoint) {
       window.location.assign(returnToPath)
@@ -354,7 +380,10 @@ class OidcBrowserAuthService implements BrowserAuthService {
     return await this.discoveryPromise
   }
 
-  private async requestToken(tokenEndpoint: string, body: URLSearchParams): Promise<Record<string, unknown>> {
+  private async requestToken(
+    tokenEndpoint: string,
+    body: URLSearchParams,
+  ): Promise<Record<string, unknown>> {
     const response = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
@@ -379,8 +408,10 @@ class OidcBrowserAuthService implements BrowserAuthService {
   }
 
   private persistTokenResponse(tokenResponse: Record<string, unknown>): void {
-    const accessToken = typeof tokenResponse.access_token === 'string' ? tokenResponse.access_token : null
-    const refreshToken = typeof tokenResponse.refresh_token === 'string' ? tokenResponse.refresh_token : null
+    const accessToken =
+      typeof tokenResponse.access_token === 'string' ? tokenResponse.access_token : null
+    const refreshToken =
+      typeof tokenResponse.refresh_token === 'string' ? tokenResponse.refresh_token : null
     const idToken = typeof tokenResponse.id_token === 'string' ? tokenResponse.id_token : null
     const expiresIn =
       typeof tokenResponse.expires_in === 'number'
@@ -420,7 +451,10 @@ export function getBrowserAuthService(): BrowserAuthService {
   return authService
 }
 
-export async function authorizedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export async function authorizedFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
   const accessToken = await authService.getAccessToken()
 
   if (!accessToken) {

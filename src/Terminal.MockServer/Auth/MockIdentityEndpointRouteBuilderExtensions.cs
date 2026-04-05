@@ -305,7 +305,7 @@ internal static class MockIdentityEndpointRouteBuilderExtensions
       <input type="hidden" name="state" value="{{WebUtility.HtmlEncode(request.State ?? string.Empty)}}">
       <input type="hidden" name="nonce" value="{{WebUtility.HtmlEncode(request.Nonce ?? string.Empty)}}">
       <label for="user_name">User name</label>
-      <input id="user_name" name="user_name" autocomplete="username" value="operator@mockidp.local">
+      <input id="user_name" name="user_name" autocomplete="username" value="serveradmin@mockidp.local">
       <label for="password">Password</label>
       <input id="password" name="password" type="password" autocomplete="current-password" value="Passw0rd!">
       <button type="submit">Continue</button>

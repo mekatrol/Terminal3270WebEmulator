@@ -24,11 +24,18 @@ internal sealed class ActiveTerminalSessionRegistry
     /// <param name="cancellationSource">
     /// The linked cancellation source that terminates the proxy loop.
     /// </param>
-    public void Register(Guid sessionId, CancellationTokenSource cancellationSource)
+    /// <param name="terminationNotifier">
+    /// Optional asynchronous callback that can notify the browser about the
+    /// administrative termination before the proxy cancellation completes.
+    /// </param>
+    public void Register(
+        Guid sessionId,
+        CancellationTokenSource cancellationSource,
+        Func<Task>? terminationNotifier = null)
     {
         ArgumentNullException.ThrowIfNull(cancellationSource);
 
-        _registrations[sessionId] = new SessionRegistration(cancellationSource);
+        _registrations[sessionId] = new SessionRegistration(cancellationSource, terminationNotifier);
     }
 
     /// <summary>
@@ -48,14 +55,19 @@ internal sealed class ActiveTerminalSessionRegistry
     /// <see langword="true"/> when an active in-process session was found and a
     /// cancellation request was issued; otherwise <see langword="false"/>.
     /// </returns>
-    public bool TryRequestTermination(Guid sessionId)
+    public async Task<bool> TryRequestTerminationAsync(Guid sessionId)
     {
         if (!_registrations.TryGetValue(sessionId, out var registration))
         {
             return false;
         }
 
-        registration.MarkTerminationRequested();
+        if (!registration.TryMarkTerminationRequested())
+        {
+            return true;
+        }
+
+        await registration.NotifyTerminationRequestedAsync();
         registration.CancellationSource.Cancel();
         return true;
     }
@@ -72,7 +84,9 @@ internal sealed class ActiveTerminalSessionRegistry
         => _registrations.TryGetValue(sessionId, out var registration) &&
            registration.TerminationRequested;
 
-    private sealed class SessionRegistration(CancellationTokenSource cancellationSource)
+    private sealed class SessionRegistration(
+        CancellationTokenSource cancellationSource,
+        Func<Task>? terminationNotifier)
     {
         private int _terminationRequested;
 
@@ -80,9 +94,12 @@ internal sealed class ActiveTerminalSessionRegistry
 
         public bool TerminationRequested => _terminationRequested == 1;
 
-        public void MarkTerminationRequested()
+        public bool TryMarkTerminationRequested()
         {
-            _ = Interlocked.Exchange(ref _terminationRequested, 1);
+            return Interlocked.Exchange(ref _terminationRequested, 1) == 0;
         }
+
+        public Task NotifyTerminationRequestedAsync()
+            => terminationNotifier?.Invoke() ?? Task.CompletedTask;
     }
 }

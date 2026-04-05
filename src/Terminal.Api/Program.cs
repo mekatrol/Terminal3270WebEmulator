@@ -143,6 +143,10 @@ public partial class Program
         app.UseCors(_spaCorsPolicyName);
         app.UseAuthentication();
         app.UseAuthorization();
+        app.MapGet("/api/app-config", () => Results.Json(new
+        {
+            terminalEndpointDisplayName = terminalProxyOptions.TerminalEndpointDisplayName,
+        }));
         app.MapAdminSessionEndpoints().RequireAuthorization(_terminalAdminPolicyName);
 
         app.Map(terminalProxyOptions.WebSocketPath, static async context =>
