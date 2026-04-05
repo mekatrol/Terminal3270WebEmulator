@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Terminal.Test.Integration.TestInfrastructure;
 
 namespace Terminal.Test.Integration.Load;
@@ -13,6 +14,7 @@ public sealed class TerminalLoadTests
     private const string _mockUserPassword = "Passw0rd!";
     private const int _terminalUserCount = 1400;
     private const int _terminalAdminCount = 200;
+    private static readonly IConfiguration _configuration = BuildConfiguration();
     private static readonly HttpClient _authHttpClient = new(new HttpClientHandler
     {
         AllowAutoRedirect = false,
@@ -81,13 +83,10 @@ public sealed class TerminalLoadTests
     [TestCategory("Load")]
     public async Task TerminalProxyLoad_HandlesConcurrentBrowserlessSessions()
     {
-        if (!string.Equals(
-                Environment.GetEnvironmentVariable("TERMINAL_LOAD_ENABLED"),
-                "1",
-                StringComparison.Ordinal))
+        if (!IsLoadTestEnabled())
         {
             Assert.Inconclusive(
-                "Set TERMINAL_LOAD_ENABLED=1 to run the load test. The default target is 1000 concurrent sessions.");
+                "Enable LoadTesting:Enabled in Terminal.Test.Integration appsettings or set TERMINAL_LOAD_ENABLED=1.");
         }
 
         var concurrency = ResolveConcurrency();
@@ -128,7 +127,22 @@ public sealed class TerminalLoadTests
             return parsedConcurrency;
         }
 
-        return 1000;
+        return _configuration.GetValue<int?>("LoadTesting:Concurrency") is { } configuredConcurrency &&
+               configuredConcurrency > 0
+            ? configuredConcurrency
+            : 1000;
+    }
+
+    private static bool IsLoadTestEnabled()
+    {
+        var configured = Environment.GetEnvironmentVariable("TERMINAL_LOAD_ENABLED");
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return string.Equals(configured, "1", StringComparison.Ordinal) ||
+                bool.TryParse(configured, out var enabledFromEnvironment) && enabledFromEnvironment;
+        }
+
+        return _configuration.GetValue<bool>("LoadTesting:Enabled");
     }
 
     private static TerminalTestEnvironment GetEnvironment() =>
@@ -224,4 +238,13 @@ public sealed class TerminalLoadTests
     private sealed record SessionMetricsSample(
         TimeSpan AuthLatency,
         TerminalProxyLoadClient.SessionRunMetrics SessionMetrics);
+
+    private static IConfiguration BuildConfiguration()
+    {
+        return new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddEnvironmentVariables()
+            .Build();
+    }
 }
