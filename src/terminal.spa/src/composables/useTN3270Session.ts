@@ -1,11 +1,16 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 
+import { getBrowserAuthService, hasTerminalSessionRole } from '@/services/auth'
 import { createTerminalSessionTransport } from '@/services/terminalSession'
 import { Tn3270TerminalScreen } from '@/services/tn3270Screen'
 import type { TN3270Color, TN3270ScreenSnapshot, Tn3270AidKey, Tn3270Frame } from '@/types/TN3270'
 
 const transport = createTerminalSessionTransport()
+const terminalAccessDeniedMessage =
+  'You are not permitted to open a terminal session on this application.'
+const terminalAccessDeniedErrorMessage =
+  '403 You do not have permission to open a terminal session.'
 
 function createInitialSnapshot(
   connectionState: 'connecting' | 'disconnected' | 'connected',
@@ -53,8 +58,10 @@ function mapModifiedKeyToAid(event: KeyboardEvent): Tn3270AidKey | null {
 
 export function useTN3270Session(): {
   accessibleSummary: ComputedRef<string>
+  canStartSession: ComputedRef<boolean>
   dismissSessionNotice: () => void
   handleKeydown: (event: KeyboardEvent) => Promise<void>
+  sessionLauncherTitle: ComputedRef<string>
   sessionNoticeMessage: ComputedRef<string | null>
   sessionNoticeTitle: ComputedRef<string | null>
   sessionLauncherMessage: ComputedRef<string>
@@ -67,6 +74,8 @@ export function useTN3270Session(): {
   let isStartingSession = false
   let isUnmounting = false
   let startupFailureHandled = false
+  const authState = getBrowserAuthService().getState()
+  const canStartSession = computed(() => hasTerminalSessionRole(authState.roles))
 
   const snapshot = ref<TN3270ScreenSnapshot>(
     createInitialSnapshot('disconnected', 'START A NEW TERMINAL SESSION', 'white'),
@@ -74,7 +83,17 @@ export function useTN3270Session(): {
   const sessionNoticeMessage = ref<string | null>(null)
   const sessionNoticeTitle = ref<string | null>(null)
   const showSessionLauncher = ref(true)
-  const sessionLauncherMessage = ref('Start a new terminal session.')
+  const sessionLauncherMessage = ref(resolveInitialSessionLauncherMessage())
+
+  function resolveInitialSessionLauncherMessage(): string {
+    return hasTerminalSessionRole(authState.roles)
+      ? 'Start a new terminal session.'
+      : terminalAccessDeniedMessage
+  }
+
+  const sessionLauncherTitle = computed(() =>
+    canStartSession.value ? 'Start a new terminal session' : 'Terminal session unavailable',
+  )
 
   function updateSnapshot(
     connectionState: 'disconnected' | 'connecting' | 'connected',
@@ -110,6 +129,13 @@ export function useTN3270Session(): {
     showSessionNotice('Terminal Connection Failed', message)
   }
 
+  function showStartupAuthorizationFailure(): void {
+    startupFailureHandled = true
+    updateSnapshot('disconnected', '403 YOU DO NOT HAVE PERMISSION', 'red')
+    showLauncher(terminalAccessDeniedMessage)
+    showSessionNotice('403 Permission Denied', terminalAccessDeniedErrorMessage)
+  }
+
   async function startSession(): Promise<void> {
     isStartingSession = true
     isUnmounting = false
@@ -142,6 +168,11 @@ export function useTN3270Session(): {
         },
         onError(message) {
           console.error('[TN3270] session error', message)
+          if (message.includes('403')) {
+            showStartupAuthorizationFailure()
+            return
+          }
+
           if (isStartingSession) {
             showStartupConnectionFailure()
             return
@@ -236,6 +267,11 @@ export function useTN3270Session(): {
       const message =
         error instanceof Error ? error.message : 'Unable to connect to terminal session.'
       console.error('[TN3270] connect failed', message)
+      if (message.includes('403')) {
+        showStartupAuthorizationFailure()
+        return
+      }
+
       showStartupConnectionFailure()
     }
   }
@@ -385,8 +421,10 @@ export function useTN3270Session(): {
 
   return {
     accessibleSummary,
+    canStartSession,
     dismissSessionNotice,
     handleKeydown,
+    sessionLauncherTitle,
     sessionNoticeMessage: computed(() => sessionNoticeMessage.value),
     sessionNoticeTitle: computed(() => sessionNoticeTitle.value),
     sessionLauncherMessage: computed(() => sessionLauncherMessage.value),

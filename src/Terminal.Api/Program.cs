@@ -11,7 +11,6 @@ using Terminal.Data.Extensions;
 public partial class Program
 {
     private const string _spaCorsPolicyName = "TerminalSpa";
-    private const string _terminalUserPolicyName = "TerminalUser";
     private const string _terminalAdminPolicyName = "TerminalAdmin";
 
     private static void Main(string[] args)
@@ -110,13 +109,6 @@ public partial class Program
                 };
             });
         builder.Services.AddAuthorizationBuilder()
-            .AddPolicy(_terminalUserPolicyName, policyBuilder =>
-            {
-                policyBuilder.RequireAuthenticatedUser();
-                policyBuilder.RequireAssertion(context =>
-                    context.User.IsInRole(authenticationOptions.TerminalUserRole) ||
-                    context.User.IsInRole(authenticationOptions.TerminalAdminRole));
-            })
             .AddPolicy(_terminalAdminPolicyName, policyBuilder =>
             {
                 policyBuilder.RequireAuthenticatedUser();
@@ -153,7 +145,7 @@ public partial class Program
         {
             var handler = context.RequestServices.GetRequiredService<TerminalWebSocketSessionHandler>();
             await handler.HandleAsync(context);
-        }).RequireAuthorization(_terminalUserPolicyName);
+        }).RequireAuthorization();
 
         app.Run();
     }

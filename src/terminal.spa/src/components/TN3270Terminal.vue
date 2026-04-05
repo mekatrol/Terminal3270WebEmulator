@@ -48,11 +48,16 @@
           class="session-launcher"
           aria-labelledby="session-launcher-title"
         >
-          <form class="session-launcher-form" @submit.prevent="handleStartSessionSubmit">
+          <form
+            class="session-launcher-form"
+            :aria-describedby="canStartSession ? undefined : 'session-launcher-copy'"
+            @submit.prevent="handleStartSessionSubmit"
+          >
             <p class="session-launcher-eyebrow">HTTP SESSION READY</p>
-            <h3 id="session-launcher-title">Start a new terminal session</h3>
-            <p class="session-launcher-copy">{{ sessionLauncherMessage }}</p>
+            <h3 id="session-launcher-title">{{ sessionLauncherTitle }}</h3>
+            <p id="session-launcher-copy" class="session-launcher-copy">{{ sessionLauncherMessage }}</p>
             <button
+              v-if="canStartSession"
               ref="sessionLauncherButtonRef"
               class="session-launcher-button"
               type="submit"
@@ -95,8 +100,10 @@ const terminalRef = ref<HTMLElement | null>(null)
 const sessionLauncherButtonRef = ref<HTMLButtonElement | null>(null)
 const {
   accessibleSummary,
+  canStartSession,
   dismissSessionNotice,
   handleKeydown,
+  sessionLauncherTitle,
   sessionNoticeMessage,
   sessionNoticeTitle,
   sessionLauncherMessage,
@@ -222,6 +229,10 @@ async function focusActiveSurface(): Promise<void> {
 }
 
 async function handleStartSessionSubmit(): Promise<void> {
+  if (!canStartSession.value) {
+    return
+  }
+
   await startSession()
 }
 
@@ -230,6 +241,10 @@ function handleStartSessionClick(event: MouseEvent): void {
   // path keeps pointer activation deterministic in component tests and in any environment where
   // synthetic clicks do not automatically dispatch a submit event.
   event.preventDefault()
+  if (!canStartSession.value) {
+    return
+  }
+
   void startSession()
 }
 

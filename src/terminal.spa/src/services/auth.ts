@@ -5,6 +5,8 @@ export type AuthState = {
   roles: string[]
 }
 
+const terminalRolePrefix = 'Terminal.'
+
 type OpenIdConfiguration = {
   authorization_endpoint: string
   token_endpoint: string
@@ -174,6 +176,10 @@ function toStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
     : []
+}
+
+export function hasTerminalSessionRole(roles: string[]): boolean {
+  return roles.some((role) => role.startsWith(terminalRolePrefix))
 }
 
 function readSession(): StoredAuthSession | null {

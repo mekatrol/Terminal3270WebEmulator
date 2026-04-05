@@ -19,18 +19,29 @@ internal sealed class TerminalWebSocketSessionHandler(
     IServiceScopeFactory serviceScopeFactory,
     IOptions<TerminalProxyOptions> terminalProxyOptions,
     IOptions<Tn3270EOptions> tn3270EOptions,
+    IOptions<OidcAuthenticationOptions> authenticationOptions,
     ActiveTerminalSessionRegistry sessionRegistry,
     ILogger<TerminalWebSocketSessionHandler> logger)
 {
     private static readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web);
+    private const string _terminalRolePrefix = "Terminal.";
     private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
     private readonly IOptions<TerminalProxyOptions> _terminalProxyOptions = terminalProxyOptions;
     private readonly IOptions<Tn3270EOptions> _tn3270EOptions = tn3270EOptions;
+    private readonly IOptions<OidcAuthenticationOptions> _authenticationOptions = authenticationOptions;
     private readonly ActiveTerminalSessionRegistry _sessionRegistry = sessionRegistry;
     private readonly ILogger<TerminalWebSocketSessionHandler> _logger = logger;
 
     public async Task HandleAsync(HttpContext context)
     {
+        if (!CanStartTerminalSession(context.User))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync(
+                "You do not have permission to open a terminal session. A role starting with 'Terminal.' is required.");
+            return;
+        }
+
         if (!context.WebSockets.IsWebSocketRequest)
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
@@ -417,6 +428,25 @@ internal sealed class TerminalWebSocketSessionHandler(
             userId;
 
         return (userId, userName);
+    }
+
+    private bool CanStartTerminalSession(ClaimsPrincipal principal)
+    {
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            return false;
+        }
+
+        var configuredTerminalRoles = new[]
+        {
+            _authenticationOptions.Value.TerminalUserRole,
+            _authenticationOptions.Value.TerminalAdminRole,
+        };
+
+        return configuredTerminalRoles.Any(role => !string.IsNullOrWhiteSpace(role) && principal.IsInRole(role)) ||
+            principal.Claims.Any(claim =>
+                string.Equals(claim.Type, "roles", StringComparison.Ordinal) &&
+                claim.Value.StartsWith(_terminalRolePrefix, StringComparison.Ordinal));
     }
 
     private static async Task CloseWebSocketIfOpenAsync(

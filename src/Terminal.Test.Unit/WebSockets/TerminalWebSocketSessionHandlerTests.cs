@@ -57,6 +57,7 @@ public sealed class TerminalWebSocketSessionHandlerTests
                 Port = 23,
                 TerminalType = "IBM-3278-2-E",
             }),
+            Options.Create(new OidcAuthenticationOptions()),
             new ActiveTerminalSessionRegistry(),
             NullLogger<TerminalWebSocketSessionHandler>.Instance);
 
@@ -118,6 +119,7 @@ public sealed class TerminalWebSocketSessionHandlerTests
                 Port = 23,
                 TerminalType = "IBM-3278-2-E",
             }),
+            Options.Create(new OidcAuthenticationOptions()),
             sessionRegistry,
             NullLogger<TerminalWebSocketSessionHandler>.Instance);
 
@@ -182,6 +184,7 @@ public sealed class TerminalWebSocketSessionHandlerTests
                 Port = 23,
                 TerminalType = "IBM-3278-2-E",
             }),
+            Options.Create(new OidcAuthenticationOptions()),
             new ActiveTerminalSessionRegistry(),
             NullLogger<TerminalWebSocketSessionHandler>.Instance);
 
@@ -200,6 +203,65 @@ public sealed class TerminalWebSocketSessionHandlerTests
                     "endpoint-server-terminated",
                     "PITS (Platform Integrated Terminal Server)")),
             "The browser should receive a host-specific session-ended control message.");
+    }
+
+    /// <summary>
+    /// Confirms that authenticated users without any <c>Terminal.</c>-prefixed
+    /// role are rejected before the WebSocket upgrade and do not create a
+    /// tracked terminal session.
+    /// </summary>
+    [TestMethod]
+    public async Task HandleAsync_WhenUserLacksTerminalRolePrefix_ReturnsForbiddenWithoutOpeningSession()
+    {
+        var databaseName = Guid.NewGuid().ToString("N");
+        var fakeTerminalService = new FakeTn3270EService();
+
+        var services = new ServiceCollection();
+        services.AddScoped<ITn3270EService>(_ => fakeTerminalService);
+        services.AddDbContext<TerminalDataContext>(options => options.UseInMemoryDatabase(databaseName));
+
+        await using var serviceProvider = services.BuildServiceProvider();
+
+        var handler = new TerminalWebSocketSessionHandler(
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new TerminalProxyOptions
+            {
+                SessionLifetime = TimeSpan.FromMinutes(5),
+                TerminalEndpointDisplayName = "PITS (Platform Integrated Terminal Server)",
+                WebSocketKeepAliveInterval = TimeSpan.FromSeconds(15),
+                WebSocketPath = "/ws/terminal",
+            }),
+            Options.Create(new Tn3270EOptions
+            {
+                Host = "mock-mainframe",
+                Port = 23,
+                TerminalType = "IBM-3278-2-E",
+            }),
+            Options.Create(new OidcAuthenticationOptions()),
+            new ActiveTerminalSessionRegistry(),
+            NullLogger<TerminalWebSocketSessionHandler>.Instance);
+
+        var context = new DefaultHttpContext
+        {
+            RequestAborted = CancellationToken.None,
+            User = BuildAuthenticatedUser("noroles@mockidp.local", ["Server.Admin"]),
+        };
+        context.Response.Body = new MemoryStream();
+
+        await handler.HandleAsync(context);
+
+        Assert.AreEqual(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+        Assert.IsFalse(fakeTerminalService.ConnectCalled, "The TN3270 host should not be contacted.");
+        Assert.IsFalse(fakeTerminalService.NegotiateCalled, "Negotiation must not start for forbidden users.");
+
+        context.Response.Body.Position = 0;
+        using var reader = new StreamReader(context.Response.Body, leaveOpen: true);
+        var responseBody = await reader.ReadToEndAsync();
+        StringAssert.Contains(responseBody, "You do not have permission to open a terminal session.");
+
+        await using var verificationScope = serviceProvider.CreateAsyncScope();
+        var terminalDataContext = verificationScope.ServiceProvider.GetRequiredService<TerminalDataContext>();
+        Assert.AreEqual(0, await terminalDataContext.TerminalSessions.CountAsync());
     }
 
     private static async Task WaitForTrackedSessionAsync(ServiceProvider serviceProvider, int expectedCount)
@@ -247,13 +309,23 @@ public sealed class TerminalWebSocketSessionHandlerTests
         return displayNameProperty.GetString() == expectedTerminalEndpointDisplayName;
     }
 
-    private static ClaimsPrincipal BuildAuthenticatedUser()
+    private static ClaimsPrincipal BuildAuthenticatedUser(
+        string userName = "serveradmin@mockidp.local",
+        IEnumerable<string>? roles = null)
     {
-        var identity = new ClaimsIdentity(
-        [
+        var claims = new List<Claim>
+        {
             new Claim(ClaimTypes.NameIdentifier, "user-123"),
-            new Claim("preferred_username", "serveradmin@mockidp.local"),
-        ],
+            new Claim("preferred_username", userName),
+        };
+
+        foreach (var role in roles ?? ["Terminal.User"])
+        {
+            claims.Add(new Claim("roles", role));
+        }
+
+        var identity = new ClaimsIdentity(
+            claims,
             authenticationType: "TestAuth");
 
         return new ClaimsPrincipal(identity);

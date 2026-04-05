@@ -4,7 +4,7 @@ import type {
   SessionReadyMessage,
   Tn3270Frame,
 } from '@/types/TN3270'
-import { appendAccessTokenToUrl } from '@/services/auth'
+import { appendAccessTokenToUrl, authorizedFetch } from '@/services/auth'
 
 export interface TerminalSessionTransport {
   connect(handlers: {
@@ -105,6 +105,33 @@ function resolveTerminalWebSocketUrl(): string {
   return `${protocol}//${window.location.host}/ws/terminal`
 }
 
+function resolveTerminalProbeUrl(): string {
+  const webSocketUrl = new URL(resolveTerminalWebSocketUrl(), window.location.origin)
+  webSocketUrl.protocol = webSocketUrl.protocol === 'wss:' ? 'https:' : 'http:'
+  return webSocketUrl.toString()
+}
+
+async function probeTerminalSessionAccess(): Promise<void> {
+  const response = await authorizedFetch(resolveTerminalProbeUrl(), {
+    method: 'GET',
+    headers: {
+      Accept: 'text/plain',
+    },
+  })
+
+  if (response.status === 403) {
+    throw new Error('403 You do not have permission to open a terminal session.')
+  }
+
+  if (response.status === 400) {
+    return
+  }
+
+  if (!response.ok) {
+    throw new Error(`Unable to verify terminal session startup (${response.status}).`)
+  }
+}
+
 export class WebSocketTerminalSessionTransport implements TerminalSessionTransport {
   private socket: WebSocket | null = null
 
@@ -119,6 +146,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
     onFrame: (frame: Tn3270Frame) => void
   }): Promise<SessionReadyMessage> {
     await this.disconnect()
+    await probeTerminalSessionAccess()
 
     const webSocketUrl = await appendAccessTokenToUrl(resolveTerminalWebSocketUrl())
     console.log('[TN3270] connecting websocket', { url: webSocketUrl })

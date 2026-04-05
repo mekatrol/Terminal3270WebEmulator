@@ -14,6 +14,8 @@ function getSessionLauncherButton(
 
 const showSessionLauncher = ref(true)
 const showSessionNotice = ref(false)
+const canStartSession = ref(true)
+const sessionLauncherTitle = ref('Start a new terminal session')
 const sessionLauncherMessage = ref('Start a new terminal session.')
 const sessionNoticeMessage = ref<string | null>(null)
 const sessionNoticeTitle = ref<string | null>(null)
@@ -32,8 +34,10 @@ vi.mock('@/composables/useTN3270Session', () => ({
     typeof import('@/composables/useTN3270Session').useTN3270Session
   > => ({
     accessibleSummary: computed(() => 'TERMINAL 3270 EMULATOR. CONNECTED. connected.'),
+    canStartSession: computed(() => canStartSession.value),
     dismissSessionNotice,
     handleKeydown: vi.fn(async () => {}),
+    sessionLauncherTitle: computed(() => sessionLauncherTitle.value),
     sessionNoticeMessage: computed(() => sessionNoticeMessage.value),
     sessionNoticeTitle: computed(() => sessionNoticeTitle.value),
     sessionLauncherMessage: computed(() => sessionLauncherMessage.value),
@@ -84,6 +88,8 @@ describe('App', () => {
   beforeEach(() => {
     showSessionLauncher.value = true
     showSessionNotice.value = false
+    canStartSession.value = true
+    sessionLauncherTitle.value = 'Start a new terminal session'
     sessionLauncherMessage.value = 'Start a new terminal session.'
     sessionNoticeMessage.value = null
     sessionNoticeTitle.value = null
@@ -178,6 +184,30 @@ describe('App', () => {
 
     await wrapper.get('button.session-notice-button').trigger('click')
     expect(dismissSessionNotice).toHaveBeenCalledOnce()
+  })
+
+  it('hides the start-session button and shows an unavailable heading when terminal access is denied', async () => {
+    canStartSession.value = false
+    sessionLauncherTitle.value = 'Terminal session unavailable'
+    sessionLauncherMessage.value =
+      'You are not permitted to open a terminal session on this application.'
+
+    router.push('/terminal')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Terminal session unavailable')
+    expect(wrapper.text()).toContain(
+      'You are not permitted to open a terminal session on this application.',
+    )
+    expect(wrapper.find('button.session-launcher-button').exists()).toBe(false)
   })
 
   it('submits the start-session form when the launcher form is submitted', async () => {
