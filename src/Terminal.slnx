@@ -1,4 +1,9 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="../design.md" />
+    <File Path="../README.md" />
+    <File Path=".editorconfig" />
+  </Folder>
   <Project Path="Terminal.Api/Terminal.Api.csproj" />
   <Project Path="Terminal.Common/Terminal.Common.csproj" />
   <Project Path="Terminal.Console/Terminal.Console.csproj" />

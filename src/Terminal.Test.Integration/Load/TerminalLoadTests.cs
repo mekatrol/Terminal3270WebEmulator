@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Configuration;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using Microsoft.Extensions.Configuration;
 using Terminal.Test.Integration.TestInfrastructure;
 
 namespace Terminal.Test.Integration.Load;
