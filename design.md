@@ -158,9 +158,13 @@ Unit tests are required for both server-side code and SPA code.
 
 MSTest is the Microsoft test framework used as the .NET test runner.
 
-### WCAG compliance
+### WCAG compliance and UX themes and styles
 
 User interface code and components must be WCAG 2.2 AA compliant. Semantic HTML should be used.
+
+Solid colors are preferred over gradiant colors (don't use gradient colots in theming)
+
+Use vue js code instead of semantic tages. eg an <a> HTML tag should not be used, a vue js <RouterLink> tag should be used instead.
 
 ### Host platforms
 

@@ -20,6 +20,13 @@ const authState = getBrowserAuthService().getState()
 
 <style scoped>
 .terminal-page {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+}
+
+.terminal-page :deep(.terminal-page) {
+  height: 100%;
   min-height: 100%;
 }
 

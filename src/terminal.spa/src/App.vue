@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 
 import { fetchAppConfig } from '@/services/appConfig'
 import { getBrowserAuthService, type AuthState } from '@/services/auth'
@@ -12,6 +12,20 @@ const terminalEndpointDisplayName = ref('Terminal 3270 Web Emulator')
 const isAuthActionPending = ref(false)
 
 const authButtonLabel = computed(() => (authState.value.isAuthenticated ? 'Sign out' : 'Sign in'))
+const canAccessAdminSessions = computed(
+  () => authState.value.isAuthenticated && authState.value.roles.includes('Server.Admin'),
+)
+const headerNavigationTarget = computed(() =>
+  route.name === 'admin-sessions'
+    ? {
+        to: '/terminal',
+        label: 'Terminal',
+      }
+    : {
+        to: '/admin/sessions',
+        label: 'Admin sessions',
+      },
+)
 const identitySummary = computed(() =>
   authState.value.isAuthenticated
     ? `${authState.value.displayName} · ${authState.value.roles.join(', ')}`
@@ -80,6 +94,16 @@ onUnmounted(() => {
         <p class="identity-label">Current identity</p>
         <p class="identity-value">{{ identitySummary }}</p>
       </div>
+      <nav v-if="canAccessAdminSessions" class="header-nav" aria-label="Administrative navigation">
+        <RouterLink
+          class="header-link"
+          :to="headerNavigationTarget.to"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ headerNavigationTarget.label }}
+        </RouterLink>
+      </nav>
       <button
         type="button"
         class="auth-button"
@@ -111,8 +135,10 @@ onUnmounted(() => {
 }
 
 .app-shell {
-  --app-header-height: 5.5rem;
+  display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .app-header {
@@ -120,7 +146,7 @@ onUnmounted(() => {
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto auto;
   gap: 1rem;
   align-items: center;
   padding: 1rem 1.5rem;
@@ -182,6 +208,37 @@ onUnmounted(() => {
     sans-serif;
 }
 
+.header-nav {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.header-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid rgb(119 189 212 / 24%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 4%);
+  color: #d8eef5;
+  font:
+    600 0.92rem/1 'Segoe UI',
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif;
+  text-decoration: none;
+}
+
+.header-link:hover,
+.header-link:focus-visible,
+.header-link.router-link-active {
+  border-color: rgb(119 189 212 / 50%);
+  background: rgb(24 131 166 / 16%);
+  outline: none;
+}
+
 .auth-button {
   padding: 0.85rem 1.15rem;
   border: 1px solid rgb(119 189 212 / 32%);
@@ -203,14 +260,11 @@ onUnmounted(() => {
 }
 
 .app-content {
-  min-height: calc(100vh - var(--app-header-height));
+  display: grid;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {
-  .app-shell {
-    --app-header-height: 9.5rem;
-  }
-
   .app-header {
     grid-template-columns: 1fr;
     align-items: start;

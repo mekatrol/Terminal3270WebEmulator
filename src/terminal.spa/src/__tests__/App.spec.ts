@@ -245,4 +245,40 @@ describe('App', () => {
     expect(wrapper.text()).toContain('Terminal sessions')
     expect(wrapper.text()).toContain('No terminal sessions are currently recorded.')
   })
+
+  it('shows an admin sessions link in the title bar for server administrators', async () => {
+    router.push('/terminal')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    const adminLink = wrapper.get('a.header-link')
+    expect(adminLink.text()).toBe('Admin sessions')
+    expect(adminLink.attributes('href')).toBe('/admin/sessions')
+    expect(adminLink.attributes('target')).toBe('_blank')
+  })
+
+  it('shows a terminal link in the title bar on the admin sessions route', async () => {
+    router.push('/admin/sessions')
+    await router.isReady()
+
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    await flushPromises()
+
+    const terminalLink = wrapper.get('a.header-link')
+    expect(terminalLink.text()).toBe('Terminal')
+    expect(terminalLink.attributes('href')).toBe('/terminal')
+    expect(terminalLink.attributes('target')).toBe('_blank')
+  })
 })

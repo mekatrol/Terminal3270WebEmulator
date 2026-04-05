@@ -249,6 +249,9 @@ onMounted(() => {
 
 <style scoped>
 .terminal-page {
+  display: grid;
+  min-height: 0;
+  height: 100%;
   min-height: 100%;
 }
 
@@ -286,6 +289,7 @@ onMounted(() => {
   --tn3270-cursor-bg: #8ce0b4;
   --tn3270-cursor-fg: #071214;
   display: grid;
+  height: 100%;
   min-height: 100%;
   width: 100%;
   grid-template-rows: auto 1fr;
