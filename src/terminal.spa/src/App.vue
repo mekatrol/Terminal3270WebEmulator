@@ -8,6 +8,7 @@ import {
   isAuthStateChangeStorageEvent,
   type AuthState,
 } from '@/services/auth'
+import '@/styles/app-shell.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,7 +124,7 @@ onUnmounted(() => {
       </div>
       <nav v-if="canAccessAdminSessions" class="header-nav" aria-label="Administrative navigation">
         <RouterLink
-          class="header-link"
+          class="header-link app-button"
           :to="headerNavigationTarget.to"
           target="_blank"
           rel="noopener noreferrer"
@@ -133,7 +134,7 @@ onUnmounted(() => {
       </nav>
       <button
         type="button"
-        class="auth-button"
+        class="auth-button app-button app-button-primary"
         :disabled="isAuthActionPending"
         @click="handleAuthAction"
       >
@@ -146,159 +147,3 @@ onUnmounted(() => {
     </main>
   </div>
 </template>
-
-<style scoped>
-:global(html),
-:global(body),
-:global(#app) {
-  margin: 0;
-  min-height: 100%;
-}
-
-:global(body) {
-  background:
-    radial-gradient(circle at top left, rgb(18 55 70 / 38%), transparent 24%),
-    linear-gradient(180deg, #020608 0%, #08131a 100%);
-}
-
-.app-shell {
-  display: grid;
-  min-height: 100vh;
-  min-height: 100dvh;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto auto;
-  gap: 1rem;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid rgb(119 189 212 / 18%);
-  background: rgb(4 12 17 / 88%);
-  backdrop-filter: blur(12px);
-  color: #d8eef5;
-}
-
-.brand-kicker {
-  margin: 0;
-  color: #77bdd4;
-  font:
-    700 0.78rem/1.2 'Segoe UI',
-    Tahoma,
-    Geneva,
-    Verdana,
-    sans-serif;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.brand-title {
-  margin: 0.18rem 0 0;
-  font:
-    700 1.4rem/1.1 Georgia,
-    'Times New Roman',
-    serif;
-}
-
-.identity-block {
-  min-width: 0;
-}
-
-.identity-label {
-  margin: 0;
-  color: #77bdd4;
-  font:
-    600 0.78rem/1.2 'Segoe UI',
-    Tahoma,
-    Geneva,
-    Verdana,
-    sans-serif;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.identity-value {
-  margin: 0.25rem 0 0;
-  overflow: hidden;
-  color: #f1fafc;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font:
-    500 0.98rem/1.4 'Segoe UI',
-    Tahoma,
-    Geneva,
-    Verdana,
-    sans-serif;
-}
-
-.header-nav {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.header-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0 1rem;
-  border: 1px solid rgb(119 189 212 / 24%);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 4%);
-  color: #d8eef5;
-  font:
-    600 0.92rem/1 'Segoe UI',
-    Tahoma,
-    Geneva,
-    Verdana,
-    sans-serif;
-  text-decoration: none;
-}
-
-.header-link:hover,
-.header-link:focus-visible,
-.header-link.router-link-active {
-  border-color: rgb(119 189 212 / 50%);
-  background: rgb(24 131 166 / 16%);
-  outline: none;
-}
-
-.auth-button {
-  padding: 0.85rem 1.15rem;
-  border: 1px solid rgb(119 189 212 / 32%);
-  border-radius: 999px;
-  background: linear-gradient(135deg, #0d536b 0%, #1883a6 100%);
-  color: #effbfd;
-  font:
-    700 0.95rem/1 'Segoe UI',
-    Tahoma,
-    Geneva,
-    Verdana,
-    sans-serif;
-  cursor: pointer;
-}
-
-.auth-button:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-
-.app-content {
-  display: grid;
-  min-height: 0;
-}
-
-@media (max-width: 900px) {
-  .app-header {
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
-
-  .identity-value {
-    white-space: normal;
-  }
-}
-</style>

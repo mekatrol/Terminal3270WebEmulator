@@ -1,0 +1,185 @@
+.terminal-page {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+}
+
+.terminal-shell {
+  display: grid;
+  height: 100%;
+  min-height: 100%;
+  width: 100%;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  background: var(--app-bg);
+  color: var(--tn3270-fg-neutral);
+  font-family: var(--app-font-mono);
+  outline: none;
+}
+
+.terminal-frame {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  padding: min(2vw, 1.5rem);
+  background: #061114;
+}
+
+.session-notice-overlay {
+  position: absolute;
+  inset: min(2vw, 1.5rem);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: min(4vw, 2rem);
+  background: rgb(2 8 11 / 82%);
+}
+
+.session-notice-panel {
+  display: grid;
+  gap: 1rem;
+  width: min(40rem, 100%);
+  padding: min(4vw, 2rem);
+  border: 1px solid rgb(255 122 107 / 35%);
+  box-shadow: var(--app-shadow);
+  background: #160808;
+}
+
+.session-notice-panel h3 {
+  margin: 0;
+  color: var(--app-text-strong);
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
+}
+
+.session-notice-message {
+  margin: 0;
+  color: #f7d7d1;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  user-select: text;
+  cursor: text;
+}
+
+.session-notice-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.terminal-grid {
+  display: grid;
+  align-content: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: min(2vw, 1.5rem);
+  border: 1px solid rgb(116 188 167 / 30%);
+  box-shadow: var(--app-shadow);
+  background: #081315;
+  user-select: none;
+}
+
+.session-launcher {
+  min-height: 100%;
+  padding: min(5vw, 3rem);
+  border: 1px solid rgb(116 188 167 / 30%);
+  box-shadow: var(--app-shadow);
+  background: #081315;
+}
+
+.session-launcher-form {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 1rem;
+  min-height: 100%;
+}
+
+.session-launcher-eyebrow {
+  margin: 0;
+  color: var(--app-accent-strong);
+  letter-spacing: 0.18em;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.session-launcher h3 {
+  margin: 0;
+  color: var(--app-text-strong);
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+}
+
+.session-launcher-copy {
+  max-width: 32rem;
+  margin: 0;
+  color: rgb(223 249 240 / 80%);
+  line-height: 1.6;
+}
+
+.terminal-row {
+  display: grid;
+  line-height: 1.1;
+}
+
+.terminal-cell {
+  display: inline-grid;
+  width: 1ch;
+  min-width: 1ch;
+  height: 1.2em;
+  place-items: center;
+  white-space: pre;
+  text-transform: uppercase;
+}
+
+.cell-intensified {
+  font-weight: 700;
+}
+
+.cell-host-rendered,
+.cell-cursor {
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.session-notice-button,
+.session-launcher-button {
+  min-height: 2.75rem;
+  padding: 0.85rem 1.15rem;
+  color: var(--app-text-strong);
+  font: inherit;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.session-notice-button {
+  border: 1px solid rgb(255 122 107 / 45%);
+  background: var(--app-button-danger-bg);
+}
+
+.session-notice-button:hover,
+.session-notice-button:focus-visible {
+  background: var(--app-button-danger-hover);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(255 122 107 / 16%);
+}
+
+.session-launcher-button {
+  border: 1px solid rgb(144 247 166 / 45%);
+  background: var(--app-button-bg);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.session-launcher-button:hover,
+.session-launcher-button:focus-visible {
+  background: var(--app-button-bg-hover);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(144 247 166 / 15%);
+}
+
+@media (max-width: 1100px) {
+  .terminal-grid {
+    overflow: auto;
+    align-content: start;
+    justify-content: start;
+  }
+}

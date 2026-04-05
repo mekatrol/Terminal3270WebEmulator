@@ -1,0 +1,189 @@
+:root {
+  --app-bg: #020608;
+  --app-surface: #081315;
+  --app-surface-raised: #0d1b1f;
+  --app-surface-overlay: #121f24;
+  --app-surface-danger: #2c1111;
+  --app-border: #244048;
+  --app-border-strong: #3f6d78;
+  --app-border-danger: #8f4e47;
+  --app-text: #d8eef5;
+  --app-text-strong: #f4f7fb;
+  --app-text-muted: #9dc1ca;
+  --app-text-subtle: #77bdd4;
+  --app-text-danger: #ffb2a6;
+  --app-accent: #8ce0b4;
+  --app-accent-strong: #6bf5eb;
+  --app-accent-danger: #ff7a6b;
+  --app-accent-warning: #ffeb75;
+  --app-button-bg: #123228;
+  --app-button-bg-hover: #1b5742;
+  --app-button-secondary-bg: #102229;
+  --app-button-secondary-hover: #163038;
+  --app-button-danger-bg: #4d1d1b;
+  --app-button-danger-hover: #5f2621;
+  --app-focus-ring: rgb(107 245 235 / 24%);
+  --app-shadow: 0 1.4rem 4rem rgb(0 0 0 / 38%);
+  --app-font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --app-font-serif: Georgia, 'Times New Roman', serif;
+  --app-font-mono: 'TN Plex Mono', 'Courier New', monospace;
+  --tn3270-fg-neutral: #8ce0b4;
+  --tn3270-fg-blue: #73a8ff;
+  --tn3270-fg-red: #ff7a6b;
+  --tn3270-fg-pink: #ff9ad0;
+  --tn3270-fg-green: #90f7a6;
+  --tn3270-fg-turquoise: #6bf5eb;
+  --tn3270-fg-yellow: #ffeb75;
+  --tn3270-fg-white: #f4f7fb;
+  --tn3270-fg-black: #0c1014;
+  --tn3270-fg-deep-blue: #1f5dff;
+  --tn3270-fg-orange: #ffb454;
+  --tn3270-fg-purple: #c79cff;
+  --tn3270-fg-pale-green: #b9ffb4;
+  --tn3270-fg-pale-turquoise: #b5fff2;
+  --tn3270-fg-grey: #b6c0c8;
+  --tn3270-bg-input-neutral: rgb(140 224 180 / 0.06);
+  --tn3270-bg-blue: #1b3156;
+  --tn3270-bg-red: #5f1d1b;
+  --tn3270-bg-pink: #5d2947;
+  --tn3270-bg-green: #1f4a2a;
+  --tn3270-bg-turquoise: #154c49;
+  --tn3270-bg-yellow: #ffeb75;
+  --tn3270-bg-white: #e7edf4;
+  --tn3270-bg-black: #0c1014;
+  --tn3270-bg-deep-blue: #16357c;
+  --tn3270-bg-orange: #664114;
+  --tn3270-bg-purple: #493263;
+  --tn3270-bg-pale-green: #c4f3bf;
+  --tn3270-bg-pale-turquoise: #b8efe8;
+  --tn3270-bg-grey: #56616d;
+  --tn3270-cursor-bg: #8ce0b4;
+  --tn3270-cursor-fg: #071214;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--app-font-sans);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app-screen {
+  display: grid;
+  min-height: 100%;
+  padding: 1.5rem;
+  color: var(--app-text);
+}
+
+.app-panel {
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+.app-kicker {
+  margin: 0 0 0.5rem;
+  color: var(--app-text-subtle);
+  font: 700 0.78rem/1.2 var(--app-font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.app-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.85rem 1.15rem;
+  border: 1px solid var(--app-border-strong);
+  background: var(--app-button-secondary-bg);
+  color: var(--app-text-strong);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.app-button:hover,
+.app-button:focus-visible {
+  background: var(--app-button-secondary-hover);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--app-focus-ring);
+}
+
+.app-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.app-button-primary {
+  border-color: rgb(144 247 166 / 45%);
+  background: var(--app-button-bg);
+}
+
+.app-button-primary:hover,
+.app-button-primary:focus-visible {
+  background: var(--app-button-bg-hover);
+}
+
+.app-button-danger {
+  border-color: var(--app-border-danger);
+  background: var(--app-button-danger-bg);
+}
+
+.app-button-danger:hover,
+.app-button-danger:focus-visible {
+  background: var(--app-button-danger-hover);
+}
+
+.app-message {
+  margin: 1rem 0 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-raised);
+}
+
+.app-message-error {
+  border-color: var(--app-border-danger);
+  background: var(--app-surface-danger);
+  color: var(--app-text-danger);
+}
+
+.app-message-status {
+  border-color: rgb(107 245 235 / 28%);
+  color: var(--app-accent);
+}

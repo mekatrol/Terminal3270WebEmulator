@@ -7,6 +7,7 @@ import {
   terminateAdminSessions,
   type AdminSession,
 } from '@/services/adminSessions'
+import '@/styles/admin-sessions.css'
 
 const sessions = ref<AdminSession[]>([])
 const selectedSessionIds = ref<string[]>([])
@@ -109,11 +110,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="admin-sessions-page">
-    <section class="admin-sessions-panel" aria-labelledby="admin-sessions-title">
+  <main class="app-screen admin-sessions-page">
+    <section class="admin-sessions-panel app-panel" aria-labelledby="admin-sessions-title">
       <header class="page-header">
         <div>
-          <p class="eyebrow">Administration</p>
+          <p class="app-kicker">Administration</p>
           <h1 id="admin-sessions-title">Terminal sessions</h1>
           <p class="intro">
             Review active and completed terminal sessions, terminate live connections, and clear
@@ -122,7 +123,7 @@ onMounted(async () => {
         </div>
         <button
           type="button"
-          class="refresh-button"
+          class="app-button"
           :disabled="isLoading || isSubmitting"
           @click="loadSessions"
         >
@@ -130,8 +131,10 @@ onMounted(async () => {
         </button>
       </header>
 
-      <p v-if="errorMessage" class="feedback feedback-error" role="alert">{{ errorMessage }}</p>
-      <p v-else-if="statusMessage" class="feedback feedback-status" role="status">
+      <p v-if="errorMessage" class="app-message app-message-error" role="alert">
+        {{ errorMessage }}
+      </p>
+      <p v-else-if="statusMessage" class="app-message app-message-status" role="status">
         {{ statusMessage }}
       </p>
 
@@ -152,7 +155,7 @@ onMounted(async () => {
         <div class="action-buttons">
           <button
             type="button"
-            class="action-button action-button-danger"
+            class="app-button app-button-danger"
             :disabled="selectedCount === 0 || isSubmitting || isLoading"
             @click="applyAction('terminate')"
           >
@@ -160,7 +163,7 @@ onMounted(async () => {
           </button>
           <button
             type="button"
-            class="action-button"
+            class="app-button"
             :disabled="selectedCount === 0 || isSubmitting || isLoading"
             @click="applyAction('clear')"
           >
@@ -224,190 +227,3 @@ onMounted(async () => {
     </section>
   </main>
 </template>
-
-<style scoped>
-.admin-sessions-page {
-  min-height: 100vh;
-  padding: 2rem;
-  background:
-    radial-gradient(circle at top right, rgb(216 235 222 / 80%), transparent 28%),
-    linear-gradient(180deg, #f7f3e8 0%, #edf2ec 100%);
-  color: #1c2c1f;
-  font-family: Georgia, 'Times New Roman', serif;
-}
-
-.admin-sessions-panel {
-  max-width: 90rem;
-  margin: 0 auto;
-  border: 1px solid rgb(28 44 31 / 12%);
-  border-radius: 1.25rem;
-  padding: 1.5rem;
-  background: rgb(255 255 255 / 88%);
-  box-shadow: 0 1.25rem 3rem rgb(28 44 31 / 12%);
-}
-
-.page-header {
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  align-items: start;
-}
-
-.eyebrow {
-  margin: 0 0 0.5rem;
-  color: #55745d;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-h1 {
-  margin: 0;
-  font-size: clamp(2rem, 4vw, 3.2rem);
-}
-
-.intro {
-  max-width: 48rem;
-  margin: 0.75rem 0 0;
-  line-height: 1.5;
-}
-
-.refresh-button,
-.action-button {
-  border: 1px solid #2e4d35;
-  border-radius: 999px;
-  padding: 0.7rem 1.1rem;
-  background: #faf8f1;
-  color: #1c2c1f;
-  font: inherit;
-  cursor: pointer;
-}
-
-.action-button-danger {
-  border-color: #8a3427;
-  color: #8a3427;
-}
-
-.refresh-button:disabled,
-.action-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.feedback {
-  margin: 1rem 0 0;
-  border-radius: 0.75rem;
-  padding: 0.9rem 1rem;
-}
-
-.feedback-error {
-  background: rgb(173 50 39 / 10%);
-  color: #7a251b;
-}
-
-.feedback-status {
-  background: rgb(54 103 64 / 10%);
-  color: #24492b;
-}
-
-.actions {
-  margin-top: 1.5rem;
-  border-top: 1px solid rgb(28 44 31 / 10%);
-  padding-top: 1.5rem;
-}
-
-.actions h2 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-.selection-controls,
-.action-buttons {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-top: 0.9rem;
-}
-
-.checkbox-label {
-  display: inline-flex;
-  gap: 0.55rem;
-  align-items: center;
-}
-
-.table-shell {
-  margin-top: 1.5rem;
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  border-bottom: 1px solid rgb(28 44 31 / 10%);
-  padding: 0.85rem 0.75rem;
-  text-align: left;
-  vertical-align: top;
-}
-
-th {
-  font-size: 0.88rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.status-pill {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
-  background: rgb(62 78 66 / 12%);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.status-pill-active {
-  background: rgb(46 105 60 / 14%);
-  color: #1d5a2a;
-}
-
-.session-id-cell {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.88rem;
-}
-
-.empty-row {
-  text-align: center;
-  color: #55745d;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-@media (max-width: 768px) {
-  .admin-sessions-page {
-    padding: 1rem;
-  }
-
-  .admin-sessions-panel {
-    padding: 1rem;
-  }
-
-  .page-header {
-    flex-direction: column;
-  }
-}
-</style>

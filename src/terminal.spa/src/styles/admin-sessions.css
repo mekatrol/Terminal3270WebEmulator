@@ -1,0 +1,135 @@
+.admin-sessions-page {
+  min-height: 100%;
+}
+
+.admin-sessions-panel {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 90rem;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: var(--app-text-strong);
+  font: 700 clamp(2rem, 4vw, 3.2rem) / 1.05 var(--app-font-serif);
+}
+
+.intro {
+  max-width: 48rem;
+  margin: 0.75rem 0 0;
+  color: var(--app-text-muted);
+  line-height: 1.6;
+}
+
+.actions {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--app-border);
+}
+
+.actions h2 {
+  margin: 0;
+  color: var(--app-text-strong);
+  font-size: 1.2rem;
+}
+
+.selection-controls,
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.selection-controls p {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+.checkbox-label {
+  display: inline-flex;
+  gap: 0.55rem;
+  align-items: center;
+  color: var(--app-text);
+}
+
+.table-shell {
+  overflow-x: auto;
+  border: 1px solid var(--app-border);
+  background: #061114;
+}
+
+.table-shell table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-shell th,
+.table-shell td {
+  border-bottom: 1px solid var(--app-border);
+  padding: 0.85rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-shell th {
+  color: var(--app-text-subtle);
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.table-shell tbody tr:hover {
+  background: #0d1b1f;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-raised);
+  color: var(--app-text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-pill-active {
+  border-color: rgb(144 247 166 / 45%);
+  color: var(--app-accent);
+}
+
+.session-id-cell {
+  font-family: var(--app-font-mono);
+  font-size: 0.88rem;
+}
+
+.empty-row {
+  text-align: center;
+  color: var(--app-text-muted);
+}
+
+@media (max-width: 768px) {
+  .app-screen.admin-sessions-page {
+    padding: 1rem;
+  }
+
+  .admin-sessions-panel {
+    padding: 1rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+}

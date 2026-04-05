@@ -1,0 +1,23 @@
+.auth-view {
+  place-items: center;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+  width: min(42rem, 100%);
+  padding: 2rem;
+}
+
+.auth-panel h1 {
+  margin: 0;
+  color: var(--app-text-strong);
+  font: 700 clamp(2rem, 4vw, 3rem) / 1.05 var(--app-font-serif);
+}
+
+.auth-panel p {
+  margin: 0;
+  color: var(--app-text-muted);
+  line-height: 1.6;
+}
