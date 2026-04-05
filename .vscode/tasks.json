@@ -32,6 +32,16 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build Terminal.Test.Integration",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Terminal.Test.Integration/Terminal.Test.Integration.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "build Terminal solution",
       "type": "process",
       "command": "dotnet",

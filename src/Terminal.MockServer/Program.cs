@@ -19,6 +19,7 @@ internal sealed class Program
         }
 
         var builder = WebApplication.CreateBuilder(args);
+        builder.Configuration.AddJsonFile("mockusers.json", optional: false, reloadOnChange: false);
 
         builder.Logging.ClearProviders();
         builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
@@ -128,6 +129,7 @@ internal sealed class Program
         var configuration = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("mockusers.json", optional: false)
             .AddJsonFile(
                 $"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? Environments.Production}.json",
                 optional: true)

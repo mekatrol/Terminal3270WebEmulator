@@ -292,7 +292,7 @@ describe('App', () => {
     const adminLink = wrapper.get('a.header-link')
     expect(adminLink.text()).toBe('Admin sessions')
     expect(adminLink.attributes('href')).toBe('/admin/sessions')
-    expect(adminLink.attributes('target')).toBe('_blank')
+    expect(adminLink.attributes('target')).toBeUndefined()
   })
 
   it('shows a terminal link in the title bar on the admin sessions route', async () => {
@@ -310,7 +310,7 @@ describe('App', () => {
     const terminalLink = wrapper.get('a.header-link')
     expect(terminalLink.text()).toBe('Terminal')
     expect(terminalLink.attributes('href')).toBe('/terminal')
-    expect(terminalLink.attributes('target')).toBe('_blank')
+    expect(terminalLink.attributes('target')).toBeUndefined()
   })
 
   it('navigates to the signed-out route when another tab clears the shared session', async () => {

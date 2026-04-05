@@ -54,6 +54,29 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ASPNETCORE_URLS": "https://localhost:7016;http://localhost:5181"
       }
+    },
+    {
+      "name": "Run Terminal Load Test",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Terminal.Test.Integration",
+      "program": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/src/Terminal.Test.Integration/Terminal.Test.Integration.csproj",
+        "--no-build",
+        "--filter",
+        "TerminalProxyLoad_HandlesConcurrentBrowserlessSessions",
+        "--logger",
+        "console;verbosity=detailed"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "env": {
+        "TERMINAL_LOAD_ENABLED": "1",
+        "TERMINAL_LOAD_CONCURRENCY": "1000"
+      }
     }
   ]
 }

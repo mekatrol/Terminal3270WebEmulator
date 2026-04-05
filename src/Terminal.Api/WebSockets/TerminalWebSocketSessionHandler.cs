@@ -190,6 +190,12 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
         finally
         {
+            await BeginWebSocketCloseAsync(
+                webSocket,
+                WebSocketCloseStatus.NormalClosure,
+                closeDescription,
+                CancellationToken.None);
+
             await CancelAndAwaitProxyTasksAsync(
                 sessionCancellationSource,
                 browserToHostTask,
@@ -461,6 +467,31 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
 
         await webSocket.CloseAsync(closeStatus, closeDescription, cancellationToken);
+    }
+
+    private async Task BeginWebSocketCloseAsync(
+        WebSocket webSocket,
+        WebSocketCloseStatus closeStatus,
+        string closeDescription,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (webSocket.State == WebSocketState.Open)
+            {
+                await webSocket.CloseOutputAsync(closeStatus, closeDescription, cancellationToken);
+                return;
+            }
+
+            if (webSocket.State == WebSocketState.CloseReceived)
+            {
+                await webSocket.CloseAsync(closeStatus, closeDescription, cancellationToken);
+            }
+        }
+        catch (Exception exception) when (exception is WebSocketException or ObjectDisposedException)
+        {
+            _logger.LogDebug(exception, "WebSocket close handshake could not be started because the socket is already closing.");
+        }
     }
 
     private static async Task<(WebSocketMessageType MessageType, byte[] Payload)> ReceiveMessageAsync(
