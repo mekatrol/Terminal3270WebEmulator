@@ -110,7 +110,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="app-screen admin-sessions-page">
+  <section class="app-screen admin-sessions-page" aria-labelledby="admin-sessions-title">
     <section class="admin-sessions-panel app-panel" aria-labelledby="admin-sessions-title">
       <header class="page-header">
         <div>
@@ -225,5 +225,5 @@ onMounted(async () => {
         </table>
       </div>
     </section>
-  </main>
+  </section>
 </template>

@@ -19,17 +19,18 @@ async function handleSignIn(): Promise<void> {
 </script>
 
 <template>
-  <main class="app-screen auth-view">
+  <section class="app-screen auth-view" aria-labelledby="signed-out-title">
     <section class="auth-panel app-panel" aria-labelledby="signed-out-title">
       <p class="app-kicker">Session state</p>
       <h1 id="signed-out-title">Signed out</h1>
+      <p>No authenticated browser session is currently available for this route.</p>
       <p>
-        This browser tab was signed out because the shared session ended in another tab or window.
+        Sign in to continue to the terminal route. If another tab ended the shared session, signing
+        in here will establish a new one.
       </p>
-      <p>Select Sign in to start a new authenticated session.</p>
       <button type="button" class="app-button app-button-primary" @click="handleSignIn">
         Sign in
       </button>
     </section>
-  </main>
+  </section>
 </template>

@@ -20,14 +20,18 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="app-screen auth-view">
-    <section class="auth-panel app-panel">
+  <section class="app-screen auth-view" aria-labelledby="auth-callback-title">
+    <section
+      class="auth-panel app-panel"
+      :aria-busy="!errorMessage"
+      aria-labelledby="auth-callback-title"
+    >
       <p class="app-kicker">Authentication</p>
-      <h1>Completing sign-in</h1>
+      <h1 id="auth-callback-title">Completing sign-in</h1>
       <p v-if="!errorMessage">
-        The browser is finalizing the OpenID Connect authorization code flow.
+        The browser is finalizing the OpenID Connect authorization code with PKCE flow.
       </p>
       <p v-else class="app-message app-message-error" role="alert">{{ errorMessage }}</p>
     </section>
-  </main>
+  </section>
 </template>

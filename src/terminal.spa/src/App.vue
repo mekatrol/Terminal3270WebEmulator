@@ -123,12 +123,7 @@ onUnmounted(() => {
         <p class="identity-value">{{ identitySummary }}</p>
       </div>
       <nav v-if="canAccessAdminSessions" class="header-nav" aria-label="Administrative navigation">
-        <RouterLink
-          class="header-link app-button"
-          :to="headerNavigationTarget.to"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <RouterLink class="header-link app-button" :to="headerNavigationTarget.to">
           {{ headerNavigationTarget.label }}
         </RouterLink>
       </nav>

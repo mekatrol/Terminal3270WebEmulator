@@ -88,6 +88,7 @@ router.beforeEach(async (to) => {
     return {
       name: 'unauthorized',
       query: {
+        requiredRole,
         returnTo: to.fullPath,
       },
     }
