@@ -28,12 +28,18 @@ internal sealed class TerminalConsoleRenderer : IDisposable
             }
             catch (IOException)
             {
+                // Some hosts reject console buffer or window resizing while still allowing rendering.
+                // The emulator continues with the current console dimensions rather than failing startup.
             }
             catch (ArgumentOutOfRangeException)
             {
+                // Console hosts can report transient size constraints that make a requested resize invalid.
+                // Rendering can still proceed by using the host's current dimensions.
             }
             catch (PlatformNotSupportedException)
             {
+                // Resize APIs are not supported on every console host, especially under redirected or
+                // virtualized terminals, so startup falls back to rendering without resizing.
             }
         }
 

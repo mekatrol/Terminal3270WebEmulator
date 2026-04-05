@@ -204,7 +204,7 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
     }
 
-    private static async Task CancelAndAwaitProxyTasksAsync(
+    private async Task CancelAndAwaitProxyTasksAsync(
         CancellationTokenSource sessionCancellationSource,
         Task? browserToHostTask,
         Task? hostToBrowserTask)
@@ -225,7 +225,7 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
     }
 
-    private static async Task AwaitProxyTaskAsync(Task proxyTask)
+    private async Task AwaitProxyTaskAsync(Task proxyTask)
     {
         try
         {
@@ -233,15 +233,19 @@ internal sealed class TerminalWebSocketSessionHandler(
         }
         catch (OperationCanceledException)
         {
+            _logger.LogDebug("Proxy loop cancellation was observed during session shutdown.");
         }
         catch (ObjectDisposedException)
         {
+            _logger.LogDebug("Proxy loop observed a disposed transport while the session was shutting down.");
         }
         catch (WebSocketException)
         {
+            _logger.LogDebug("Proxy loop observed a WebSocket transport failure during shutdown.");
         }
         catch (EndOfStreamException)
         {
+            _logger.LogDebug("Proxy loop observed the TN3270/TN3270E stream closing during shutdown.");
         }
     }
 

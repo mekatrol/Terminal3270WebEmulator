@@ -56,6 +56,7 @@ internal sealed partial class TerminalClientService(
         }
         catch (OperationCanceledException)
         {
+            logger.LogDebug("Terminal console client is stopping because cancellation was requested.");
         }
         catch (Exception ex)
         {

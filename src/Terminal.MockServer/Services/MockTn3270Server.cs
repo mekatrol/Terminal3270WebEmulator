@@ -70,6 +70,12 @@ internal sealed partial class MockTn3270Server(
             }
             catch (OperationCanceledException)
             {
+                if (logger.IsEnabled(LogLevel.Debug))
+                {
+                    logger.LogDebug(
+                        "Mock TN3270 session for {Remote} is stopping because application shutdown was requested.",
+                        remote);
+                }
             }
             catch (Exception ex)
             {

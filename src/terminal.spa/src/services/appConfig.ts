@@ -36,7 +36,9 @@ export async function fetchAppConfig(): Promise<AppConfig> {
     return {
       terminalEndpointDisplayName,
     }
-  } catch {
+  } catch (error) {
+    console.warn('[app-config] failed to load runtime configuration, using defaults', error)
+
     return {
       terminalEndpointDisplayName: defaultTerminalEndpointDisplayName,
     }

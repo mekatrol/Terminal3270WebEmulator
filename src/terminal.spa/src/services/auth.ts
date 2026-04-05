@@ -327,7 +327,8 @@ class OidcBrowserAuthService implements BrowserAuthService {
 
       this.persistTokenResponse(tokenResponse)
       return true
-    } catch {
+    } catch (error) {
+      console.warn('[auth] refresh token exchange failed, clearing stored session', error)
       removeStorageItem(authSessionStorageKey)
       return false
     }
