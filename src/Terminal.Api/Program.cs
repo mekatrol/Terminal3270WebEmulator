@@ -12,6 +12,7 @@ public partial class Program
 {
     private const string _spaCorsPolicyName = "TerminalSpa";
     private const string _terminalAdminPolicyName = "TerminalAdmin";
+    private const string _terminalSessionPolicyName = "TerminalSession";
 
     private static void Main(string[] args)
     {
@@ -109,6 +110,24 @@ public partial class Program
                 };
             });
         builder.Services.AddAuthorizationBuilder()
+            .AddPolicy(_terminalSessionPolicyName, policyBuilder =>
+            {
+                policyBuilder.RequireAuthenticatedUser();
+                policyBuilder.RequireAssertion(context =>
+                {
+                    var configuredTerminalRoles = new[]
+                    {
+                        authenticationOptions.TerminalUserRole,
+                        authenticationOptions.TerminalAdminRole,
+                    };
+
+                    return configuredTerminalRoles.Any(role =>
+                               !string.IsNullOrWhiteSpace(role) && context.User.IsInRole(role)) ||
+                           context.User.Claims.Any(claim =>
+                               string.Equals(claim.Type, "roles", StringComparison.Ordinal) &&
+                               claim.Value.StartsWith("Terminal.", StringComparison.Ordinal));
+                });
+            })
             .AddPolicy(_terminalAdminPolicyName, policyBuilder =>
             {
                 policyBuilder.RequireAuthenticatedUser();
@@ -145,7 +164,7 @@ public partial class Program
         {
             var handler = context.RequestServices.GetRequiredService<TerminalWebSocketSessionHandler>();
             await handler.HandleAsync(context);
-        }).RequireAuthorization();
+        }).RequireAuthorization(_terminalSessionPolicyName);
 
         app.Run();
     }

@@ -111,6 +111,11 @@ function resolveTerminalProbeUrl(): string {
   return webSocketUrl.toString()
 }
 
+function describeWebSocketEndpoint(url: string): string {
+  const resolvedUrl = new URL(url, window.location.origin)
+  return `${resolvedUrl.origin}${resolvedUrl.pathname}`
+}
+
 async function probeTerminalSessionAccess(): Promise<void> {
   const response = await authorizedFetch(resolveTerminalProbeUrl(), {
     method: 'GET',
@@ -149,7 +154,8 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
     await probeTerminalSessionAccess()
 
     const webSocketUrl = await appendAccessTokenToUrl(resolveTerminalWebSocketUrl())
-    console.log('[TN3270] connecting websocket', { url: webSocketUrl })
+    const webSocketEndpoint = describeWebSocketEndpoint(webSocketUrl)
+    console.log('[TN3270] connecting websocket', { endpoint: webSocketEndpoint })
 
     const socket = new WebSocket(webSocketUrl)
     socket.binaryType = 'arraybuffer'
@@ -168,7 +174,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
       }
 
       socket.addEventListener('open', () => {
-        console.log('[TN3270] websocket open', { url: webSocketUrl })
+        console.log('[TN3270] websocket open', { endpoint: webSocketEndpoint })
       })
 
       socket.addEventListener('close', (event) => {
@@ -180,7 +186,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
           wasClean: event.wasClean,
         })
         console.log('[TN3270] websocket close', {
-          url: webSocketUrl,
+          endpoint: webSocketEndpoint,
           code: event.code,
           reason: event.reason,
           wasClean: event.wasClean,
@@ -196,7 +202,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
       })
 
       socket.addEventListener('error', () => {
-        console.error('[TN3270] websocket error', { url: webSocketUrl })
+        console.error('[TN3270] websocket error', { endpoint: webSocketEndpoint })
         fail(new Error('Unable to establish the terminal proxy WebSocket connection.'))
       })
 
@@ -240,7 +246,7 @@ export class WebSocketTerminalSessionTransport implements TerminalSessionTranspo
     })
 
     this.socket = socket
-    console.log('[TN3270] connect resolved', { url: webSocketUrl })
+    console.log('[TN3270] connect resolved', { endpoint: webSocketEndpoint })
     return ready
   }
 
