@@ -1,3 +1,5 @@
+import { resolveDevelopmentApiOrigin } from '@/config/developmentServer'
+
 export type AppConfig = {
   terminalEndpointDisplayName: string
 }
@@ -9,6 +11,10 @@ function resolveAppConfigUrl(): string {
 
   if (configuredUrl) {
     return configuredUrl
+  }
+
+  if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
+    return `${resolveDevelopmentApiOrigin()}/api/app-config`
   }
 
   return '/api/app-config'

@@ -4,6 +4,7 @@ import type {
   SessionReadyMessage,
   Tn3270Frame,
 } from '@/types/TN3270'
+import { resolveDevelopmentTerminalWebSocketOrigin } from '@/config/developmentServer'
 import { appendAccessTokenToUrl, authorizedFetch } from '@/services/auth'
 
 export interface TerminalSessionTransport {
@@ -99,6 +100,10 @@ function resolveTerminalWebSocketUrl(): string {
   const configuredUrl = import.meta.env.VITE_TERMINAL_WS_URL
   if (configuredUrl) {
     return configuredUrl
+  }
+
+  if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
+    return `${resolveDevelopmentTerminalWebSocketOrigin()}/ws/terminal`
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'

@@ -1,3 +1,4 @@
+import { resolveDevelopmentApiOrigin } from '@/config/developmentServer'
 import { authorizedFetch } from '@/services/auth'
 
 export type AdminSession = {
@@ -26,6 +27,10 @@ function resolveAdminSessionsBaseUrl(): string {
 
   if (configuredBaseUrl) {
     return `${configuredBaseUrl.replace(/\/$/, '')}/api/admin/sessions`
+  }
+
+  if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
+    return `${resolveDevelopmentApiOrigin()}/api/admin/sessions`
   }
 
   const configuredWebSocketUrl = import.meta.env.VITE_TERMINAL_WS_URL
